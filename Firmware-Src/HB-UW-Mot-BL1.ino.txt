@@ -1,0 +1,165 @@
+#include "HB-UW-Mot-BL1.h"
+#include "Register.h"															// configuration sheet
+
+//- load library's --------------------------------------------------------------------------------------------------------
+#include <Buttons.h>															// remote buttons library
+
+// homematic communication
+HM::s_jumptable jTbl[] = {														// jump table for HM communication
+	// byte3, byte10, byte11, function to call									// 0xff means - any byte
+	 { 0x11,  0x04,  0x00,    cmdReset },										// Reset message
+	 { 0x01,  0xFF,  0x06,    cmdConfigChanged },								// Config end message
+	 { 0x01,  0xFF,  0x0E,    cmdStatusRequest },
+	 { 0x00 }
+};
+
+Buttons button[1];																// declare remote button object
+
+// main functions
+void setup() {
+	// We disable the Watchdog first
+	wdt_disable();
+
+	#ifdef SER_DBG
+		Serial.begin(57600);													// serial setup
+		Serial << F("Starting sketch...\n");									// ...and some information
+		Serial << F("freeMem: ") << freeMem() << F(" byte") << F("\n");
+	#endif
+
+	#if USE_ADRESS_SECTION == 1
+		getDataFromAddressSection(devParam, 1,  ADDRESS_SECTION_START + 0, 12);	// get device type (model-ID) and serial number from bootloader section at 0x7FF0 and 0x7FF2
+		getDataFromAddressSection(devParam, 17, ADDRESS_SECTION_START + 12, 3);	// get device address stored in bootloader section at 0x7FFC
+
+		//Serial << F("Device type from Bootloader: ") << pHex(&devParam[1],  2) << F("\n");
+		//Serial << F("Serial from Bootloader: ")      << pHex(&devParam[3], 10) << F("\n");
+		//Serial << F("Addresse from Bootloader: ")    << pHex(&devParam[17], 3) << F("\n");
+	#endif
+
+	hm.cc.config(10,11,12,13,2,0);												// CS, MOSI, MISO, SCK, GDO0, Interrupt
+
+	// setup battery measurement
+	hm.battery.config(
+		BATTERY_MODE_EXTERNAL_MESSUREMENT, 7, 1, BATTERY_MEASSUREMENT_FACTOR, 900000	// battery measurement every 15 minutes
+	);
+
+	hm.init();																	// initialize the hm module
+
+	button[0].regInHM(0, &hm);													// register buttons in HM per channel, handover HM class pointer
+	button[0].config(8, NULL);													// configure button on specific pin and handover a function pointer to the main sketch
+
+	byte rr = MCUSR;
+	MCUSR =0;
+
+	cmdConfigChanged(0, 0);
+
+	// initialization done, we blink 3 times
+	hm.statusLed.config(4, 5);													// configure the status led pin
+
+
+	/** Debug start */
+	pinMode(A0, OUTPUT);
+	pinMode(A1, OUTPUT);
+
+	// rotate left
+	digitalWrite(A0, 0);
+	digitalWrite(A1, 1);
+	_delay_ms(5000);
+
+	// stop
+	digitalWrite(A0, 0);
+	digitalWrite(A1, 0);
+	_delay_ms(100);
+
+	// rotate right (clockwise)
+	digitalWrite(A0, 1);
+	digitalWrite(A1, 0);
+	_delay_ms(5000);
+
+//	Break
+//	digitalWrite(A0, 1);
+//	digitalWrite(A1, 1);
+
+	// stop
+	digitalWrite(A0, 0);
+	digitalWrite(A1, 0);
+
+	hm.statusLed.set(STATUSLED_BOTH, STATUSLED_MODE_BLINKSLOW, 5);
+	// Test brake
+//	digitalWrite(A0, 0);
+//	digitalWrite(A1, 0);
+
+	/** Debug end */
+
+
+
+	hm.statusLed.set(STATUSLED_BOTH, STATUSLED_MODE_BLINKFAST, 3);
+}
+
+void getDataFromAddressSection(uint8_t *buffer, uint8_t bufferStartAddress, uint16_t sectionAddress, uint8_t dataLen) {
+	for (unsigned char i = 0; i < dataLen; i++) {
+		buffer[(i + bufferStartAddress)] = pgm_read_byte(sectionAddress + i);
+	}
+}
+
+void getPgmSpaceData(uint8_t *buffer, uint16_t address, uint8_t len) {
+	for (unsigned char i = 0; i < len; i++) {
+		buffer[i] = pgm_read_byte(address+i);
+	}
+}
+
+void loop() {
+	hm.poll();																	// poll the HM communication
+}
+
+void cmdReset(uint8_t *data, uint8_t len) {
+	#ifdef SER_DBG
+		Serial << F("reset, data: ") << pHex(data,len) << F("\n");
+	#endif
+
+	hm.send_ACK();																// send an ACK
+	if (data[1] == 0) {
+		hm.reset();
+//		hm.resetWdt();
+	}
+}
+
+void cmdConfigChanged(uint8_t *data, uint8_t len) {
+	// low battery level
+	uint8_t lowBatVoltage = regs.ch0.l0.lowBatLimit;
+	lowBatVoltage = (lowBatVoltage < BATTERY_MIN_VOLTAGE) ? BATTERY_MIN_VOLTAGE : lowBatVoltage;
+	lowBatVoltage = (lowBatVoltage > BATTERY_MAX_VOLTAGE) ? BATTERY_MAX_VOLTAGE : lowBatVoltage;
+	hm.battery.setMinVoltage(lowBatVoltage);
+
+	// led mode
+	hm.setLedMode((regs.ch0.l0.ledMode) ? LED_MODE_EVERYTIME : LED_MODE_CONFIG);
+
+	// power mode for HM device
+//	hm.setPowerMode(POWER_MODE_SLEEP_WDT);
+	hm.setPowerMode((regs.ch0.l0.burstRx) ? POWER_MODE_BURST : POWER_MODE_SLEEP_WDT);
+//	hm.setPowerMode(POWER_MODE_ON);
+
+	// set max transmit retry
+	uint8_t transmDevTryMax = regs.ch0.l0.transmDevTryMax;
+	transmDevTryMax = (transmDevTryMax < 1) ? 1 : transmDevTryMax;
+	transmDevTryMax = (transmDevTryMax > 10) ? 10 : transmDevTryMax;
+	dParm.maxRetr = transmDevTryMax;
+
+	#ifdef SER_DBG
+		Serial << F("Config changed.") << F("\n");
+		if (len > 0) Serial << F("Data: ") << pHex(data,len) << F("\n");
+
+		Serial << F("lowBatLimit: ") << regs.ch0.l0.lowBatLimit << F("\n");
+		Serial << F("ledMode: ") << regs.ch0.l0.ledMode << F("\n");
+		Serial << F("burstRx: ") << regs.ch0.l0.burstRx << F("\n");
+		Serial << F("transmDevTryMax: ") << transmDevTryMax << F("\n");
+	#endif
+}
+
+void cmdStatusRequest(uint8_t *data, uint8_t len) {
+	Serial << F("status request, data: ") << pHex(data,len) << '\n';
+	_delay_ms(50);
+}
+
+void HM_Remote_Event(uint8_t *data, uint8_t len) {
+	Serial << F("remote event, data: ") << pHex(data,len) << '\n';
+}

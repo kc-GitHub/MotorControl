@@ -1,0 +1,14 @@
+For the firmware update, the Sensor must switched off and switched on again.
+
+1. Take at least one battery out of the sensor.
+2. Press the config button and insert the battery in the sensor.
+3. Still holding the config button a few seconds after inserting the batteries.
+4. Bootloader should starts.
+
+Changelog:
+
+Version Beta 0.1
+-------------
+
+** Improvement
+ * Initial Version:
