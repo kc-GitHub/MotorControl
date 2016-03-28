@@ -9,7 +9,7 @@ fi
 
 curPath=`pwd`
 date=`date +%y%m%d`
-versionMajor=1
+versionMajor=0
 versionMinor=$1
 update=_update_V$versionMajor\_$versionMinor\_$2\_$date
 

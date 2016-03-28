@@ -100,7 +100,7 @@ void loop() {
  * @brief Init the blind channel modul
  */
 void initBlind(uint8_t channel) {
-	dbg << "init pwm\n";
+	dbg << "init initBlind\n";
 
 	digitalWrite(A2, HIGH);
 	pinInput(SW_IMPULSE_DDR, SW_IMPULSE_PIN);									// set channel to input
