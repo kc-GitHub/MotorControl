@@ -168,7 +168,7 @@ class cmBlind {
 	} *l3;
 	
 	void (*fInit)(uint8_t);																	// pointer to init function in main sketch
-	void (*fUpdateState)(uint8_t, uint8_t, uint16_t);										// pointer to updateState function in main sketch, first value is state level
+	void (*fUpdateState)(uint8_t, uint8_t, uint32_t);										// pointer to updateState function in main sketch, first value is state level
 	
 	uint8_t   stateToSend;																	// is there a status to be send, 1 indicates an ACK, 2 a status message
 	uint16_t  msgDelay;
@@ -193,7 +193,7 @@ class cmBlind {
   //- user defined functions ----------------------------------------------------------------------------------------------
 
 //	void     config(void init(uint8_t), void updateState(uint8_t, uint8_t));				// configures the module, jump addresses, etc
-	void     config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint16_t));		// configures the module, jump addresses, etc
+	void     config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint32_t));		// configures the module, jump addresses, etc
 
 	void     trigger11(uint8_t setValue, uint8_t *rampTime, uint8_t *duraTime);				// messages coming from master
 	void     trigger40(uint8_t keyLong, uint8_t megCount);									// messages coming from switch

@@ -16,7 +16,7 @@
  * @param init(uint8_t):                 pointer to user init function
  * @param updateState(uint8_t, uint8_t): pointer to user updateState function
  */
-void cmBlind::config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint16_t)) {
+void cmBlind::config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint32_t)) {
 
 	fInit = init;
 	fUpdateState = updateState;
@@ -425,8 +425,9 @@ inline void cmBlind::sendState(void) {
 		extState |= AS_CM_EXTSTATE_RUNNING;
 	}
 		
-	if (stateToSend == AS_CM_STATETOSEND_ACK) {											// Check which type has to be send
+	if (stateToSend == AS_CM_STATETOSEND_ACK) {										// Check which type has to be send
 		hm->sendACK_STATUS(regCnl, modState, extState);								// send ACK
+
 	} else if (stateToSend == AS_CM_STATETOSEND_STATE) {
 		hm->sendINFO_ACTUATOR_STATUS(regCnl, modState, extState);					// send status
 	}

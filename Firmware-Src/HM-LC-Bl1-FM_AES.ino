@@ -1,3 +1,13 @@
+/*
+ * Todo's:
+ *
+ * - check impulse counting
+ * - Statemachine for the channel
+ *
+ * - peered key not acked. INFO_ACTUATOR_STATUS is send instead.
+ *
+ */
+
 
 #define SER_DBG
 
@@ -24,12 +34,12 @@ uint32_t nextMotorEvent = 0;
 uint8_t  motorDirLast = MOTOR_LEFT;
 
 int32_t travelTimeStart = 0;
-int16_t travelTimeMax = 5000;
+int16_t travelTimeMax = 1000;													// max travel time without impulses
 int32_t travelCount = 0;
 int16_t travelMax = 0;
 
 int32_t intervallTimeStart = 0;
-int16_t intervallTimeMax = 4000;
+int16_t intervallTimeMax = 4000;												// time after status update is send while traveling
 
 
 /**
@@ -116,7 +126,7 @@ void initBlind(uint8_t channel) {
 /**
  * @brief This function was called at every action
  */
-void blindUpdateState(uint8_t channel, uint8_t state, uint16_t rrttb) {			// rrttb = REFERENCE_RUNNING_TIME_BOTTOM_TOP
+void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb) {			// rrttb = REFERENCE_RUNNING_TIME_BOTTOM_TOP
 	travelMax = rrttb / 1000;
 
 	if ((state == 200 && motorStateLast == MOTOR_LEFT) || (state == 0 && motorStateLast == MOTOR_RIGHT)) {
@@ -234,13 +244,13 @@ void mototPoll() {
 	}
 }
 
-void motorLeft() {
+void motorRight() {
 	motorStop();
 	digitalWrite(A0, 0);
 	digitalWrite(A1, 1);
 }
 
-void motorRight() {
+void motorLeft() {
 	motorStop();
 	digitalWrite(A0, 1);
 	digitalWrite(A1, 0);

@@ -9,7 +9,7 @@
 	AS hm;																			// asksin framework
 	cmBlind cmBlind[1];																// create 1 instances of channel module
 	extern void initBlind(uint8_t channel);											// declare function to jump in
-	extern void blindUpdateState(uint8_t channel, uint8_t state, uint16_t rrttb);	// declare function to jump in
+	extern void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb);	// declare function to jump in
 
 	/*
 	 * HMID, Serial number, HM-Default-Key, Key-Index
