@@ -134,43 +134,34 @@ void    initConfKey(void) {
 }
 
 //- -----------------------------------------------------------------------------------------------------------------------
-ISR (PCINT0_vect) {
-	pcInt[0].prev = pcInt[0].cur;
-	pcInt[0].cur = PINB;
-	pcInt[0].time = getMillis();
-//	dbg << "i1:" << PINB  << "\n";
-}
 
-ISR (PCINT1_vect) {
-	pcInt[1].prev = pcInt[1].cur;
-	pcInt[1].cur = PINC;
-	pcInt[1].time = getMillis();
-
-//	dbg << "i2:" << PINC << "\n";
-
-	/*
-	if (irOn) {
-		uint8_t a = pcInt[PORTC].cur & _BV(PINC2);
-		dbg << "i2:" << pcInt[1].cur << "," << a << "\n";
-
-		if ((pcInt[1].cur & _BV(PINC2)) && irState == 0) {
-			irState = 1;
-			irCount++;
-		} else if ((pcInt[1].cur & _BV(PINC2) == 0) && irState == 1) {
-			irState = 0;
-			irCount++;
-		}
+#ifndef USE_OWN_ISR_PCINT0_vect
+	ISR (PCINT0_vect) {
+		pcInt[0].prev = pcInt[0].cur;
+		pcInt[0].cur = PINB;
+		pcInt[0].time = getMillis();
+	//	dbg << "i1:" << PINB  << "\n";
 	}
-*/
+#endif
 
+#ifndef USE_OWN_ISR_PCINT1_vect
+	ISR (PCINT1_vect) {
+		pcInt[1].prev = pcInt[1].cur;
+		pcInt[1].cur = PINC;
+		pcInt[1].time = getMillis();
 
-}
-ISR (PCINT2_vect) {
-	pcInt[2].prev = pcInt[2].cur;
-	pcInt[2].cur = PIND;
-	pcInt[2].time = getMillis();
-//	dbg << "i3:" << PIND  << "\n";
-}
+	//	dbg << "i2:" << PINC << "\n";
+	}
+#endif
+
+#ifndef USE_OWN_ISR_PCINT2_vect
+	ISR (PCINT2_vect) {
+		pcInt[2].prev = pcInt[2].cur;
+		pcInt[2].cur = PIND;
+		pcInt[2].time = getMillis();
+	//	dbg << "i3:" << PIND  << "\n";
+	}
+#endif
 //- -----------------------------------------------------------------------------------------------------------------------
 
 
