@@ -177,7 +177,8 @@ void motorInit() {
 }
 
 void sendPosition() {
-	cmBlind[0].setSendState( 200 - (( (travelCount > 0 ? travelCount : 0)  * 200) / travelMax) );			// send position
+	uint8_t pos = ( (travelCount > 0 ? travelCount : 0)  * 200 ) / travelMax;
+	cmBlind[0].setSendState(200 - pos);											// send position
 }
 
 void mototPoll() {
