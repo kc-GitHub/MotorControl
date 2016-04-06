@@ -1,10 +1,8 @@
 /*
  * Todo's:
  *
- * - check impulse counting
  * - Statemachine for the channel
- *
- * - peered key not acked. INFO_ACTUATOR_STATUS is send instead.
+ * - fix AES handling
  *
  */
 
