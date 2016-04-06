@@ -38,7 +38,7 @@ int32_t travelMax = 0;
 uint32_t impulseSwitchTime = 0;
 
 uint32_t intervallTimeStart = 0;
-uint16_t intervallTimeMax = 4000;												// time after status update is send while traveling
+uint16_t intervallTimeMax = 2000;												// time after status update is send while traveling
 
 /**
  * @brief This is the Arduino Setup-Function
@@ -131,13 +131,11 @@ void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb) {			// rrt
 	} else if (state == 200) {
 		motorState = MOTOR_LEFT;
 		travelTimeStart = getMillis();
-		intervallTimeStart = getMillis();
 		motorDirLast = MOTOR_LEFT;
 
 	} else if (state == 0) {
 		motorState = MOTOR_RIGHT;
 		travelTimeStart = getMillis();
-		intervallTimeStart = getMillis();
 		motorDirLast = MOTOR_LEFT;
 
 	} else if (state == 201) {							// toggle
@@ -148,18 +146,18 @@ void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb) {			// rrt
 			motorState = MOTOR_LEFT;
 			motorDirLast = MOTOR_LEFT;
 			travelTimeStart = getMillis();
-			intervallTimeStart = getMillis();
 
 		} else if (motorDirLast == MOTOR_LEFT) {
 			motorState = MOTOR_RIGHT;
 			motorDirLast = MOTOR_RIGHT;
 			travelTimeStart = getMillis();
-			intervallTimeStart = getMillis();
 		}
 
 	} else if (state == 255) {							// stop
 		motorState = MOTOR_STOP;
 	}
+
+	intervallTimeStart = getMillis();
 
 	#ifdef SER_DBG
 		dbg << F("Ch: ") << channel << F(", State: ") << state << ", motorState: " << motorState << ", motorDirLast: " << motorDirLast << '\n';
@@ -177,7 +175,8 @@ void motorInit() {
 }
 
 void sendPosition() {
-	cmBlind[0].setSendState( 200 - (( (travelCount > 0 ? travelCount : 0)  * 200) / travelMax) );			// send position
+	uint8_t pos = ( (travelCount > 0 ? travelCount : 0)  * 200 ) / travelMax;
+	cmBlind[0].setSendState(200 - pos);											// send position
 }
 
 void mototPoll() {
@@ -233,9 +232,13 @@ void mototPoll() {
 		motorStateLast = motorState;
 	}
 
-	if (motorState != MOTOR_STOP && (getMillis() - intervallTimeStart) > intervallTimeMax) {
-		intervallTimeStart = getMillis();
+	if ( intervallTimeStart > 0 && (getMillis() - intervallTimeStart) > intervallTimeMax ) {
 		sendPosition();
+		if (motorState != MOTOR_STOP) {
+			intervallTimeStart = getMillis();									// reset send delay every time if motor is running
+		} else {
+			intervallTimeStart = 0;
+		}
 	}
 }
 
@@ -254,8 +257,6 @@ void motorLeft() {
 void motorStop() {
 	digitalWrite(A0, 0);
 	digitalWrite(A1, 0);
-
-	sendPosition();
 
 	_delay_ms(100);
 }
