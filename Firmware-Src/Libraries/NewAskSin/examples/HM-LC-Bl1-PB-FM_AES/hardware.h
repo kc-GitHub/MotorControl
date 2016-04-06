@@ -11,7 +11,8 @@
 #ifndef _HARDWARE_h
 	#define _HARDWARE_h
 
-	#define DEBOUNCE                   5										// input debounce time in ms - 5 seems to be a good value
+	#define DEBOUNCE                   10										// input debounce time in ms - 5 seems to be a good value
+	#define USE_OWN_ISR_PCINT1_vect    1
 
 	#if defined(__AVR_ATmega328P__)
 		//- cc1100 hardware CS and GDO0 definitions -------------------------------------------------------------------
@@ -71,7 +72,6 @@
 		#define SW_END_PCIE            PCIE1									// Pin change interrupt enable register for end switch
 		#define SW_END_PCMSK           PCMSK1									// Pin change mask register for end switch
 		#define SW_END_INT             PCINT10									// Pin change interrupt
-
 	#endif
 
 #endif

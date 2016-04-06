@@ -12,35 +12,33 @@
 #define SER_DBG
 
 //- load library's --------------------------------------------------------------------------------------------------------
-#include "register.h"																// device configuration file
+#include "register.h"															// device configuration file
 #include <AS.h>
 
 #define MOTOR_STOP       0
 #define MOTOR_LEFT       1
 #define MOTOR_RIGHT      2
 
-#define PIN_LOW          0
-#define PIN_HIGH         1
-#define PIN_GO_LOW       2
-#define PIN_GO_HIGH      3
-
-#define TRAVEL_COUNT_MAX 65535
+#define TRAVEL_COUNT_MAX 32768													// ABS value of max travel count (max = 32768)
 
 void mototPoll();
 
 uint8_t  motorState = 0;
 uint8_t  motorStateLast = 0;
+uint8_t  motorLastDirection = 0;
 uint32_t nextMotorEvent = 0;
 uint8_t  motorDirLast = MOTOR_LEFT;
+uint8_t  endSwitchState;
 
-int32_t travelTimeStart = 0;
-int16_t travelTimeMax = 1000;													// max travel time without impulses
-int32_t travelCount = 0;
-int16_t travelMax = 0;
+uint32_t travelTimeStart = 0;
+uint16_t travelTimeMax = 1000;													// max travel time without impulses
+int16_t  travelCount = 0;
+int16_t  travelCountOld = 0;
+int32_t travelMax = 0;
+uint32_t impulseSwitchTime = 0;
 
-int32_t intervallTimeStart = 0;
-int16_t intervallTimeMax = 4000;												// time after status update is send while traveling
-
+uint32_t intervallTimeStart = 0;
+uint16_t intervallTimeMax = 4000;												// time after status update is send while traveling
 
 /**
  * @brief This is the Arduino Setup-Function
@@ -69,7 +67,7 @@ void setup() {
 
 	#ifdef SER_DBG
 		dbgStart();																	// serial setup
-		dbg << F("Starting sketch for HM-LC-Bl1-FM_AES ...\n\n");
+		dbg << F("Starting sketch for HM-LC-Bl1-FM_AES ... ("__DATE__" "__TIME__")\n\n");
 		dbg << F(LIB_VERSION_STRING);
 	#endif
 	
@@ -110,8 +108,6 @@ void loop() {
  * @brief Init the blind channel modul
  */
 void initBlind(uint8_t channel) {
-	dbg << "init initBlind\n";
-
 	digitalWrite(A2, HIGH);
 	pinInput(SW_IMPULSE_DDR, SW_IMPULSE_PIN);									// set channel to input
 	regPCIE(SW_IMPULSE_PCIE);													// set the pin change interrupt
@@ -160,6 +156,9 @@ void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb) {			// rrt
 			travelTimeStart = getMillis();
 			intervallTimeStart = getMillis();
 		}
+
+	} else if (state == 255) {							// stop
+		motorState = MOTOR_STOP;
 	}
 
 	#ifdef SER_DBG
@@ -174,24 +173,26 @@ void motorInit() {
 
 	motorState = MOTOR_STOP;
 	motorStateLast = MOTOR_STOP;
+	motorLastDirection = MOTOR_STOP;
 }
 
 void sendPosition() {
-	cmBlind[0].setSendState( 200 - ((travelCount * 200) / travelMax) );			// send position
+	cmBlind[0].setSendState( 200 - (( (travelCount > 0 ? travelCount : 0)  * 200) / travelMax) );			// send position
 }
 
 void mototPoll() {
-	uint8_t endSwitchState = chkPCINT(SW_END_PCIE, SW_END_INT);
-
-	if ((endSwitchState == PIN_GO_LOW || endSwitchState == PIN_LOW) && motorState == MOTOR_LEFT) {	// end switch reached
+	if (endSwitchState == 0 && motorState == MOTOR_LEFT) {						// end switch reached
 		motorState = MOTOR_STOP;
 		travelCount = 0;
-		dbg << F("end switch reached: ") << endSwitchState << '\n';
+//		dbg << F("end switch reached: ") << endSwitchState << '\n';
 	}
 
-	if (travelCount >= travelMax     && motorState == MOTOR_RIGHT) { 								// travel distance reached
+	if (travelCount >= travelMax && motorState == MOTOR_RIGHT) { 			// travel distance reached
 		motorState = MOTOR_STOP;
-		dbg << F("travel distance reached, travelMax: ") << travelMax << '\n';
+
+		#ifdef SER_DBG
+			dbg << F("travel distance reached, travelMax: ") << travelMax << '\n';
+		#endif
 	}
 
 	if (motorState != MOTOR_STOP) {
@@ -201,37 +202,31 @@ void mototPoll() {
 		if ( (getMillis() - travelTimeStart) > travelTimeMax ) {				// travel impulse missing
 			motorState = MOTOR_STOP;
 
-			uint32_t tts = (getMillis() - travelTimeStart);
-			dbg << F("travel impulse missing: ") << tts << ", " << travelTimeStart << '\n';
+//			uint32_t tts = (getMillis() - travelTimeStart);
+//			dbg << F("travel imp missing: ") << tts << ", " << travelTimeStart << '\n';
 		}
 	}
-
-//	if ( (motorState == MOTOR_LEFT && motorStateLast == MOTOR_LEFT) || (motorState == MOTOR_LEFT && motorStateLast == MOTOR_LEFT) ) {
-//		motorState = MOTOR_STOP;
-//	}
 
 	if (motorState != motorStateLast) {
 		if        (motorState == MOTOR_STOP) {
 			motorStop();
-		} else if (motorState == MOTOR_LEFT) {
+		} else if (motorState == MOTOR_LEFT && travelCount >= 0) {
+			motorLastDirection = MOTOR_LEFT;
 			motorLeft();
 		} else if (motorState == MOTOR_RIGHT && travelCount < travelMax) {
+			motorLastDirection = MOTOR_RIGHT;
 			motorRight();
 		}
 	}
 
-	uint8_t impulseSwitch = chkPCINT(SW_IMPULSE_PCIE, SW_IMPULSE_INT);
-	if (impulseSwitch == PIN_GO_LOW) {
-		if (motorState == MOTOR_RIGHT && travelCount < TRAVEL_COUNT_MAX) {
-			travelCount++;
-		} else if (motorState == MOTOR_LEFT && travelCount > 0) {
-			travelCount--;
-		}
-
-		dbg << F("travelCount: ") << travelCount << '\n';
-
+	if (travelCount != travelCountOld) {
 		// reset travelTimeStart
 		travelTimeStart = getMillis();
+		travelCountOld = travelCount;
+
+		#ifdef SER_DBG
+			dbg << F("travelCnt: ") << travelCount << '\n';
+		#endif
 	}
 
 	if (motorState != motorStateLast) {
@@ -269,4 +264,46 @@ void motorBreak() {
 	motorStop();
 	digitalWrite(A0, 0);
 	digitalWrite(A1, 0);
+}
+
+// own PCINT1_vec
+ISR (PCINT1_vect) {
+
+	uint8_t impulseSwitch = (PINC & _BV(SW_IMPULSE_PIN));
+
+	endSwitchState = (PINC & _BV(SW_END_PIN));									// here we need no debounceing
+
+//	dbg << F("impulseSwitch: ") << impulseSwitch << ", endSwitchState: " << endSwitchState << ", PINC: " << PINC << '\n';
+
+	if (!impulseSwitch && (getMillis() - impulseSwitchTime > DEBOUNCE) ) {		// trigger on release impulse contact
+		impulseSwitchTime = getMillis();
+
+		if ( (
+			(motorState == MOTOR_LEFT || (motorState == MOTOR_STOP && motorLastDirection == MOTOR_LEFT) ) &&
+			travelCount > -TRAVEL_COUNT_MAX) ) {
+
+			travelCount--;
+
+		} else if ( (
+			(motorState == MOTOR_RIGHT || (motorState == MOTOR_STOP && motorLastDirection == MOTOR_RIGHT) ) &&
+			travelCount < TRAVEL_COUNT_MAX) ) {
+
+			travelCount++;
+		}
+	}
+
+	/*
+	if (irOn) {
+		uint8_t a = pcInt[PORTC].cur & _BV(PINC2);
+		dbg << "i2:" << pcInt[1].cur << "," << a << "\n";
+
+		if ((pcInt[1].cur & _BV(PINC2)) && irState == 0) {
+			irState = 1;
+			irCount++;
+		} else if ((pcInt[1].cur & _BV(PINC2) == 0) && irState == 1) {
+			irState = 0;
+			irCount++;
+		}
+	}
+*/
 }
