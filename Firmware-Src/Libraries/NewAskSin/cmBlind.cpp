@@ -536,7 +536,11 @@ void cmBlind::pairSetEvent(uint8_t *data, uint8_t len) {
 		dbg << '\n';
 	#endif
 
-	trigger11(data[0], ((len > 1) ? data+1 : NULL), ((len > 3) ? data+3 : NULL));
+	trigger11(
+		((len > 0) ? data[0] : 255),											// send 255 if stop was sent
+		((len > 1) ? data+1 : NULL),											// sent modRampTime if len > 1
+		((len > 3) ? data+3 : NULL)												// sent modDurationTime if len > 3
+	);
 
 	stateToSend = AS_CM_STATETOSEND_ACK;											// ACK should be send
 	msgTmr.set(100);																// give some time
@@ -612,14 +616,15 @@ void cmBlind::regInHM(uint8_t cnl, uint8_t lst, AS *instPtr) {
  */
 void cmBlind::hmEventCol(uint8_t by3, uint8_t by10, uint8_t by11, uint8_t *data, uint8_t len) {
 //	dbg << "hmEventCol >>>>>>> by3:" << by3 << " by10:" << by10 << " d:" << _HEX(data, len) << '\n'; _delay_ms(100);
-	if      ((by3 == 0x00) && (by10 == 0x00))                   poll();
-	else if ((by3 == 0x00) && (by10 == 0x01))                   setToggle();
-	else if ((by3 == 0x00) && (by10 == 0x02))                   firstStart();
-	else if ((by3 == 0x01) && (by11 == 0x06))                   configCngEvent();
-	else if ((by3 == 0x11) && (by10 == 0x02) || (by10 == 0x03)) pairSetEvent(data, len);
-	else if ((by3 == 0x01) && (by11 == 0x0E))                   pairStatusReq();
-	else if ((by3 == 0x01) && (by11 == 0x01))                   peerAddEvent(data, len);
-	else if  (by3 >= 0x3E)                                      peerMsgEvent(by3, data, len);
+	if      ((by3 == 0x00) && (by10 == 0x00)) poll();
+	else if ((by3 == 0x00) && (by10 == 0x01)) setToggle();
+	else if ((by3 == 0x00) && (by10 == 0x02)) firstStart();
+	else if ((by3 == 0x01) && (by11 == 0x06)) configCngEvent();
+	else if ((by3 == 0x11) && (by10 == 0x02)) pairSetEvent(data, len);			// set
+	else if ((by3 == 0x11) && (by10 == 0x03)) pairSetEvent(data, 0);			// stop
+	else if ((by3 == 0x01) && (by11 == 0x0E)) pairStatusReq();
+	else if ((by3 == 0x01) && (by11 == 0x01)) peerAddEvent(data, len);
+	else if  (by3 >= 0x3E)                    peerMsgEvent(by3, data, len);
 	else return;
 }
 
