@@ -411,9 +411,10 @@ inline void cmBlind::updateState(void) {
 inline void cmBlind::sendState(void) {
 	uint8_t  extState = AS_CM_EXTSTATE_NONE;										// extended state (down, up, running)
 
-	if (stateToSend == AS_CM_STATETOSEND_NONE) return;									// nothing to do
+	if (stateToSend == AS_CM_STATETOSEND_NONE) return;								// nothing to do
+
 	if (!msgTmr.done()) return;														// not the right time
-		
+
 	if (modState < setState) {
 		extState  = AS_CM_EXTSTATE_UP;
 
@@ -434,22 +435,22 @@ inline void cmBlind::sendState(void) {
 
 	// check if it is a stable status, otherwise schedule next info message
 	if (extState >= AS_CM_EXTSTATE_RUNNING) {										// status is currently changing
-		stateToSend = AS_CM_STATETOSEND_STATE;											// send next time a info status message
+		stateToSend = AS_CM_STATETOSEND_STATE;										// send next time a info status message
 		msgTmr.set(delayTmr.remain() + 5);
 
 	} else if (extState > AS_CM_STATETOSEND_NONE) {
-		stateToSend = AS_CM_STATETOSEND_STATE;											// send next time a info status message
+		stateToSend = AS_CM_STATETOSEND_STATE;										// send next time a info status message
 		msgTmr.set(msgDelay);
 
 	} else {
-		stateToSend = AS_CM_STATETOSEND_NONE;											// no need for next time
+		stateToSend = AS_CM_STATETOSEND_NONE;										// no need for next time
 	}
 }
 
 void cmBlind::setSendState(uint8_t state) {
 	modState = state;
 	setState = state;
-	hm->sendINFO_ACTUATOR_STATUS(regCnl, modState, AS_CM_EXTSTATE_NONE);							// send status
+	hm->sendINFO_ACTUATOR_STATUS(regCnl, modState, AS_CM_EXTSTATE_NONE);		// send status
 }
 
 void cmBlind::poll(void) {
@@ -542,8 +543,9 @@ void cmBlind::pairSetEvent(uint8_t *data, uint8_t len) {
 		((len > 3) ? data+3 : NULL)												// sent modDurationTime if len > 3
 	);
 
-	stateToSend = AS_CM_STATETOSEND_ACK;											// ACK should be send
-	msgTmr.set(100);																// give some time
+	// we don't need this. ack_status was sent implicit
+	// stateToSend = AS_CM_STATETOSEND_ACK;										// ACK should be send
+	// msgTmr.set(100);															// give some time
 }
 
 /**
@@ -582,7 +584,7 @@ void cmBlind::peerMsgEvent(uint8_t type, uint8_t *data, uint8_t len) {
 		}
 
 		stateToSend = AS_CM_STATETOSEND_ACK;										// ACK should be send
-		msgTmr.set(100);															// immediately
+		//msgTmr.set(100);															// immediately
 
 	} else {
 		hm->sendACK();
