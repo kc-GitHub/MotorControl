@@ -66,16 +66,7 @@ void    ledGrn(uint8_t stat) {
 	else                setPinCng(LED_GRN_PORT, LED_GRN_PIN);
 }
 
-
-
-struct  s_pcINT {
-	uint8_t cur;
-	uint8_t prev;
-	uint32_t time;
-} static volatile pcInt[3];
-
 //- pin related functions -------------------------------------------------------------------------------------------------
-
 void    initPCINT(void) {
 	memset((uint8_t*)pcInt, 0x00, sizeof(pcInt));
 	//dbg << "a: " << pcInt[2].cur << '\n';
