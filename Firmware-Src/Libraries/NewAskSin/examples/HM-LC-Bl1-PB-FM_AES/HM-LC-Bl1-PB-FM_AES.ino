@@ -1,6 +1,6 @@
 /*
  * Todo's:
- *
+ * - save last position and state in eeprom so we can switch off power supply
  * - Statemachine for the channel
  * - fix AES handling
  *
@@ -28,7 +28,7 @@ uint8_t  motorState = 0;
 uint8_t  motorStateLast = 0;
 uint8_t  motorLastDirection = 0;
 uint8_t  motorDirLast = MOTOR_LEFT;
-uint8_t  endSwitchState;
+uint8_t  endSwitchState = 1;
 
 uint32_t travelTimeStart = 0;
 uint16_t travelTimeMax = 1000;													// max travel time without impulses
@@ -186,6 +186,7 @@ void motorInit() {
 
 void sendPosition() {
 	uint8_t pos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
+	pos = (pos > 200) ? 200 : pos;
 	cmBlind[0].setSendState(200 - pos);											// send position
 }
 
@@ -196,7 +197,7 @@ void mototPoll() {
 //		dbg << F("end switch reached: ") << endSwitchState << '\n';
 	}
 
-	if (travelCount >= travelMax && motorState == MOTOR_RIGHT) { 			// travel distance reached
+	if (travelCount >= travelMax && motorState == MOTOR_RIGHT) { 				// travel distance reached
 		motorState = MOTOR_STOP;
 
 		#ifdef SER_DBG
