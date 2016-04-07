@@ -17,6 +17,7 @@
 	const uint8_t HMSerialData[] PROGMEM = {
 		/* HMID */            0x01, 0x02, 0x06,
 		/* Serial number */   'M', 'S', 'T', '3', '5', '7', '0', '5', '0', '9',		// MST3570509
+
 		/* Default-Key */     HM_DEVICE_AES_KEY,
 		/* Key-Index */       HM_DEVICE_AES_KEY_INDEX,
 	};
@@ -35,7 +36,7 @@
 	 *                  23:0 0.4, means first four bit of byte 23 reflecting the amount of channels.
 	 */
 	const uint8_t devIdnt[] PROGMEM = {
-		/* firmwareVersion 1 byte */  0x01,
+		/* firmwareVersion 1 byte */  0x24,
 		/* modelID         2 byte */  0x00, 0x53,									// HM-LC-Bl1-PB-FM
 		/* subTypeID       1 byte */  0x30,
 		/* deviceInfo      3 byte */  0x01, 0x01, 0x00,

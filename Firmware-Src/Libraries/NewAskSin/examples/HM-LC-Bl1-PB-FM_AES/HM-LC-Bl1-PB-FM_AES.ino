@@ -13,12 +13,15 @@
 #include "register.h"															// device configuration file
 #include <AS.h>
 
-#define MOTOR_STOP       0
-#define MOTOR_LEFT       1
-#define MOTOR_RIGHT      2
+#define USE_ADRESS_SECTION      0
 
-#define TRAVEL_COUNT_MAX 32768													// ABS value of max travel count (max = 32768)
+#define MOTOR_STOP              0
+#define MOTOR_LEFT              1
+#define MOTOR_RIGHT             2
 
+#define TRAVEL_COUNT_MAX        32768											// ABS value of max travel count (max = 32768)
+
+// function forward declaration
 void mototPoll();
 
 uint8_t  motorState = 0;
@@ -60,22 +63,32 @@ void setup() {
 
 	// TODO: Maybe we should enable timer0 and SPI internally?
 	power_timer0_enable();
-	power_spi_enable();																// enable only needed functions
+	power_spi_enable();															// enable only needed functions
 
 	#ifdef SER_DBG
-		dbgStart();																	// serial setup
+		dbgStart();																// serial setup
 		dbg << F("Starting sketch for HM-LC-Bl1-FM_AES ... ("__DATE__" "__TIME__")\n\n");
 		dbg << F(LIB_VERSION_STRING);
 	#endif
-	
-	hm.init();																		// init the asksin framework
+
+	hm.init();																	// init the asksin framework
+
+	#if USE_ADRESS_SECTION == 1
+		//getDataFromAddressSection(DevType, 0,  ADDRESS_SECTION_START + 0, 2);	// get device type from bootloader section
+		getDataFromAddressSection(HMSR, 0, ADDRESS_SECTION_START + 2, 10);		// get hmid from bootloader section
+		getDataFromAddressSection(HMID, 0, ADDRESS_SECTION_START + 12, 3);		// get serial number from bootloader section
+
+		dbg << F("Get HMID and HMSR from Bootloader-Area: ") << "\n";
+	#endif
 
 	#ifdef SER_DBG
-		dbg << F("HMID:  ") << _HEX(HMID,3) << F(", MAID: ") << _HEX(MAID,3) << "\n\n";		// some debug
-		//dbg << F("HmKey: ") << _HEX(HMKEY, 16) << '\n';
-		//dbg << F("KeyId: ") << _HEX(hmKeyIndex, 1) << '\n';
+		dbg << F("HMID: ")  << _HEX(HMID,3)        << "\n";
+		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "\n\n";
+		dbg << F("MAID: ")  << _HEX(MAID,3)        << "\n";
+//		dbg << F("HmKey: ") << _HEX(HMKEY, 16)     << "\n";
+//		dbg << F("KeyId: ") << _HEX(hmKeyIndex, 1) << "\n";
 
-		for (uint8_t i = 1; i <= devDef.cnlNbr; i++) {											// check if AES activated for any channel
+		for (uint8_t i = 1; i <= devDef.cnlNbr; i++) {							// check if AES activated for any channel
 			if (hm.ee.getRegAddr(i, 1, 0, AS_REG_L1_AES_ACTIVE)) {
 				dbg << F("AES active for channel: ") << _HEXB(i) << '\n';
 			}
@@ -307,3 +320,11 @@ ISR (PCINT1_vect) {
 	}
 */
 }
+
+#if USE_ADRESS_SECTION == 1
+	void getDataFromAddressSection(uint8_t *buffer, uint8_t bufferStartAddress, uint16_t sectionAddress, uint8_t dataLen) {
+		for (unsigned char i = 0; i < dataLen; i++) {
+			buffer[(i + bufferStartAddress)] = pgm_read_byte(sectionAddress + i);
+		}
+	}
+#endif

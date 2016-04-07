@@ -15,6 +15,8 @@
 	#define USE_OWN_ISR_PCINT1_vect    1
 
 	#if defined(__AVR_ATmega328P__)
+		#define ADDRESS_SECTION_START   0x7FF0									// Start address of device data in address section at and of bootloader
+
 		//- cc1100 hardware CS and GDO0 definitions -------------------------------------------------------------------
 		#define CC_CS_DDR              DDRB										// SPI chip select definition
 		#define CC_CS_PORT             PORTB

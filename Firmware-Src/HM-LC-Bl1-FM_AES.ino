@@ -13,18 +13,20 @@
 #include "register.h"															// device configuration file
 #include <AS.h>
 
-#define MOTOR_STOP       0
-#define MOTOR_LEFT       1
-#define MOTOR_RIGHT      2
+#define USE_ADRESS_SECTION      1
 
-#define TRAVEL_COUNT_MAX 32768													// ABS value of max travel count (max = 32768)
+#define MOTOR_STOP              0
+#define MOTOR_LEFT              1
+#define MOTOR_RIGHT             2
 
+#define TRAVEL_COUNT_MAX        32768											// ABS value of max travel count (max = 32768)
+
+// function forward declaration
 void mototPoll();
 
 uint8_t  motorState = 0;
 uint8_t  motorStateLast = 0;
 uint8_t  motorLastDirection = 0;
-uint32_t nextMotorEvent = 0;
 uint8_t  motorDirLast = MOTOR_LEFT;
 uint8_t  endSwitchState;
 
@@ -32,11 +34,11 @@ uint32_t travelTimeStart = 0;
 uint16_t travelTimeMax = 1000;													// max travel time without impulses
 int16_t  travelCount = 0;
 int16_t  travelCountOld = 0;
-int32_t travelMax = 0;
+uint16_t travelMax = 0;
 uint32_t impulseSwitchTime = 0;
 
-uint32_t intervallTimeStart = 0;
-uint16_t intervallTimeMax = 2000;												// time after status update is send while traveling
+uint32_t intervallTimeStart  = 0;
+uint16_t sendStatusIntervall = 2000;											// time after status update is send while traveling
 
 /**
  * @brief This is the Arduino Setup-Function
@@ -61,22 +63,32 @@ void setup() {
 
 	// TODO: Maybe we should enable timer0 and SPI internally?
 	power_timer0_enable();
-	power_spi_enable();																// enable only needed functions
+	power_spi_enable();															// enable only needed functions
 
 	#ifdef SER_DBG
-		dbgStart();																	// serial setup
+		dbgStart();																// serial setup
 		dbg << F("Starting sketch for HM-LC-Bl1-FM_AES ... ("__DATE__" "__TIME__")\n\n");
 		dbg << F(LIB_VERSION_STRING);
 	#endif
-	
-	hm.init();																		// init the asksin framework
+
+	hm.init();																	// init the asksin framework
+
+	#if USE_ADRESS_SECTION == 1
+		//getDataFromAddressSection(DevType, 0,  ADDRESS_SECTION_START + 0, 2);	// get device type from bootloader section
+		getDataFromAddressSection(HMSR, 0, ADDRESS_SECTION_START + 2, 10);		// get hmid from bootloader section
+		getDataFromAddressSection(HMID, 0, ADDRESS_SECTION_START + 12, 3);		// get serial number from bootloader section
+
+		dbg << F("Get HMID and HMSR from Bootloader-Area: ") << "\n";
+	#endif
 
 	#ifdef SER_DBG
-		dbg << F("HMID:  ") << _HEX(HMID,3) << F(", MAID: ") << _HEX(MAID,3) << "\n\n";		// some debug
-		//dbg << F("HmKey: ") << _HEX(HMKEY, 16) << '\n';
-		//dbg << F("KeyId: ") << _HEX(hmKeyIndex, 1) << '\n';
+		dbg << F("HMID: ")  << _HEX(HMID,3)        << "\n";
+		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "\n\n";
+		dbg << F("MAID: ")  << _HEX(MAID,3)        << "\n";
+//		dbg << F("HmKey: ") << _HEX(HMKEY, 16)     << "\n";
+//		dbg << F("KeyId: ") << _HEX(hmKeyIndex, 1) << "\n";
 
-		for (uint8_t i = 1; i <= devDef.cnlNbr; i++) {											// check if AES activated for any channel
+		for (uint8_t i = 1; i <= devDef.cnlNbr; i++) {							// check if AES activated for any channel
 			if (hm.ee.getRegAddr(i, 1, 0, AS_REG_L1_AES_ACTIVE)) {
 				dbg << F("AES active for channel: ") << _HEXB(i) << '\n';
 			}
@@ -121,7 +133,7 @@ void initBlind(uint8_t channel) {
  * @brief This function was called at every action
  */
 void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb) {			// rrttb = REFERENCE_RUNNING_TIME_BOTTOM_TOP
-	travelMax = rrttb / 1000;
+	travelMax = (uint16_t)(rrttb / 1000);
 
 	if ((state == 200 && motorStateLast == MOTOR_LEFT) || (state == 0 && motorStateLast == MOTOR_RIGHT)) {
 		motorState = MOTOR_STOP;
@@ -173,7 +185,7 @@ void motorInit() {
 }
 
 void sendPosition() {
-	uint8_t pos = ( (travelCount > 0 ? travelCount : 0)  * 200 ) / travelMax;
+	uint8_t pos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
 	cmBlind[0].setSendState(200 - pos);											// send position
 }
 
@@ -207,9 +219,11 @@ void mototPoll() {
 	if (motorState != motorStateLast) {
 		if        (motorState == MOTOR_STOP) {
 			motorStop();
+
 		} else if (motorState == MOTOR_LEFT && travelCount >= 0) {
 			motorLastDirection = MOTOR_LEFT;
 			motorLeft();
+
 		} else if (motorState == MOTOR_RIGHT && travelCount < travelMax) {
 			motorLastDirection = MOTOR_RIGHT;
 			motorRight();
@@ -230,7 +244,7 @@ void mototPoll() {
 		motorStateLast = motorState;
 	}
 
-	if ( intervallTimeStart > 0 && (getMillis() - intervallTimeStart) > intervallTimeMax ) {
+	if ( intervallTimeStart > 0 && (getMillis() - intervallTimeStart) > sendStatusIntervall ) {
 		sendPosition();
 		if (motorState != MOTOR_STOP) {
 			intervallTimeStart = getMillis();									// reset send delay every time if motor is running
@@ -306,3 +320,11 @@ ISR (PCINT1_vect) {
 	}
 */
 }
+
+#if USE_ADRESS_SECTION == 1
+	void getDataFromAddressSection(uint8_t *buffer, uint8_t bufferStartAddress, uint16_t sectionAddress, uint8_t dataLen) {
+		for (unsigned char i = 0; i < dataLen; i++) {
+			buffer[(i + bufferStartAddress)] = pgm_read_byte(sectionAddress + i);
+		}
+	}
+#endif
