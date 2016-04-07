@@ -32,7 +32,7 @@ uint32_t travelTimeStart = 0;
 uint16_t travelTimeMax = 1000;													// max travel time without impulses
 int16_t  travelCount = 0;
 int16_t  travelCountOld = 0;
-int32_t travelMax = 0;
+uint16_t travelMax = 0;
 uint32_t impulseSwitchTime = 0;
 
 uint32_t intervallTimeStart = 0;
@@ -121,7 +121,7 @@ void initBlind(uint8_t channel) {
  * @brief This function was called at every action
  */
 void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb) {			// rrttb = REFERENCE_RUNNING_TIME_BOTTOM_TOP
-	travelMax = rrttb / 1000;
+	travelMax = (uint16_t)(rrttb / 1000);
 
 	if ((state == 200 && motorStateLast == MOTOR_LEFT) || (state == 0 && motorStateLast == MOTOR_RIGHT)) {
 		motorState = MOTOR_STOP;
@@ -173,7 +173,7 @@ void motorInit() {
 }
 
 void sendPosition() {
-	uint8_t pos = ( (travelCount > 0 ? travelCount : 0)  * 200 ) / travelMax;
+	uint8_t pos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
 	cmBlind[0].setSendState(200 - pos);											// send position
 }
 
