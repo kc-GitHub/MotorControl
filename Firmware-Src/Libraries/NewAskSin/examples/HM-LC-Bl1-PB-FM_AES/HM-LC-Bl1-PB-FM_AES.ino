@@ -24,7 +24,6 @@ void mototPoll();
 uint8_t  motorState = 0;
 uint8_t  motorStateLast = 0;
 uint8_t  motorLastDirection = 0;
-uint32_t nextMotorEvent = 0;
 uint8_t  motorDirLast = MOTOR_LEFT;
 uint8_t  endSwitchState;
 
@@ -35,8 +34,8 @@ int16_t  travelCountOld = 0;
 uint16_t travelMax = 0;
 uint32_t impulseSwitchTime = 0;
 
-uint32_t intervallTimeStart = 0;
-uint16_t intervallTimeMax = 2000;												// time after status update is send while traveling
+uint32_t intervallTimeStart  = 0;
+uint16_t sendStatusIntervall = 2000;											// time after status update is send while traveling
 
 /**
  * @brief This is the Arduino Setup-Function
@@ -207,9 +206,11 @@ void mototPoll() {
 	if (motorState != motorStateLast) {
 		if        (motorState == MOTOR_STOP) {
 			motorStop();
+
 		} else if (motorState == MOTOR_LEFT && travelCount >= 0) {
 			motorLastDirection = MOTOR_LEFT;
 			motorLeft();
+
 		} else if (motorState == MOTOR_RIGHT && travelCount < travelMax) {
 			motorLastDirection = MOTOR_RIGHT;
 			motorRight();
@@ -230,7 +231,7 @@ void mototPoll() {
 		motorStateLast = motorState;
 	}
 
-	if ( intervallTimeStart > 0 && (getMillis() - intervallTimeStart) > intervallTimeMax ) {
+	if ( intervallTimeStart > 0 && (getMillis() - intervallTimeStart) > sendStatusIntervall ) {
 		sendPosition();
 		if (motorState != MOTOR_STOP) {
 			intervallTimeStart = getMillis();									// reset send delay every time if motor is running
