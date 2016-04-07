@@ -34,7 +34,7 @@ uint32_t travelTimeStart = 0;
 uint16_t travelTimeMax = 1000;													// max travel time without impulses
 int16_t  travelCount = 0;
 int16_t  travelCountOld = 0;
-uint16_t travelMax = 0;
+int16_t travelMax = 0;
 uint32_t impulseSwitchTime = 0;
 
 uint32_t intervallTimeStart  = 0;
@@ -218,7 +218,8 @@ void mototPoll() {
 
 	if (motorState != motorStateLast) {
 		if        (motorState == MOTOR_STOP) {
-			motorStop();
+//			motorStop();
+			motorBreak();
 
 		} else if (motorState == MOTOR_LEFT && travelCount >= 0) {
 			motorLastDirection = MOTOR_LEFT;
@@ -250,6 +251,7 @@ void mototPoll() {
 			intervallTimeStart = getMillis();									// reset send delay every time if motor is running
 		} else {
 			intervallTimeStart = 0;
+			motorStop();														// release motor break
 		}
 	}
 }
@@ -275,8 +277,8 @@ void motorStop() {
 
 void motorBreak() {
 	motorStop();
-	digitalWrite(A0, 0);
-	digitalWrite(A1, 0);
+	digitalWrite(A0, 1);
+	digitalWrite(A1, 1);
 }
 
 // own PCINT1_vec
