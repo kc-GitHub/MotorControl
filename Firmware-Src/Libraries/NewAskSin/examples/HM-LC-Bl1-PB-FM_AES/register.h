@@ -11,6 +11,8 @@
 	extern void initBlind(uint8_t channel);											// declare function to jump in
 	extern void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb);	// declare function to jump in
 
+	uint8_t  initialPos = 200;														// initial position of blind
+
 	/*
 	 * HMID, Serial number, HM-Default-Key, Key-Index
 	 */
@@ -121,7 +123,7 @@
 
 		// register user modules
 		cmBlind[0].regInHM(1, 3, &hm);												// register user module
-		cmBlind[0].config(&initBlind, &blindUpdateState);							// configure user module
+		cmBlind[0].config(&initBlind, &blindUpdateState, initialPos);				// configure user module
 	}
 
 	/**

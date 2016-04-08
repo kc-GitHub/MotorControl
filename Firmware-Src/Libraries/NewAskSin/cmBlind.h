@@ -193,7 +193,7 @@ class cmBlind {
   //- user defined functions ----------------------------------------------------------------------------------------------
 
 //	void     config(void init(uint8_t), void updateState(uint8_t, uint8_t));				// configures the module, jump addresses, etc
-	void     config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint32_t));		// configures the module, jump addresses, etc
+	void     config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint32_t), uint8_t initialPos);		// configures the module, jump addresses, etc
 
 	void     trigger11(uint8_t setValue, uint8_t *rampTime, uint8_t *duraTime);				// messages coming from master
 	void     trigger40(uint8_t keyLong, uint8_t megCount);									// messages coming from switch

@@ -1,8 +1,7 @@
 /*
  * Todo's:
- * - save last position and state in eeprom so we can switch off power supply
- * - Statemachine for the channel
  * - fix AES handling
+ * - Statemachine for the channel
  *
  */
 
@@ -30,13 +29,13 @@ uint8_t  motorLastDirection = 0;
 uint8_t  motorDirLast = MOTOR_LEFT;
 uint8_t  endSwitchState = 1;
 
+int16_t  travelCount = 0;
+
+int16_t  travelCountOld = 0;
 uint32_t travelTimeStart = 0;
 uint16_t travelTimeMax = 1000;													// max travel time without impulses
-int16_t  travelCount = 0;
-int16_t  travelCountOld = 0;
-int16_t travelMax = 0;
+int16_t  travelMax = 0;
 uint32_t impulseSwitchTime = 0;
-
 uint32_t intervallTimeStart  = 0;
 uint16_t sendStatusIntervall = 2000;											// time after status update is send while traveling
 
@@ -70,6 +69,12 @@ void setup() {
 		dbg << F("Starting sketch for HM-LC-Bl1-FM_AES ... ("__DATE__" "__TIME__")\n\n");
 		dbg << F(LIB_VERSION_STRING);
 	#endif
+
+	// get values from eeprom
+	getEEPromBlock(0x03FF, 1, (void*)&motorLastDirection);						// restore motorLastDirection from byte 1024 in eeprom
+	getEEPromBlock(0x03FC, 2, (void*)&travelCount);								// restore travelCount from byte 1022 in eeprom
+	getEEPromBlock(0x03FB, 1, (void*)&initialPos);								// restore initialPos from byte 1021 in eeprom
+//	dbg << F("motorLastDirection: ") << motorLastDirection << F(", travelCount: ") << travelCount << '\n';
 
 	hm.init();																	// init the asksin framework
 
@@ -182,12 +187,13 @@ void motorInit() {
 	motorState = MOTOR_STOP;
 	motorStateLast = MOTOR_STOP;
 	motorLastDirection = MOTOR_STOP;
+	travelCountOld = travelCount;
 }
 
 void sendPosition() {
 	uint8_t pos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
-	pos = (pos > 200) ? 200 : pos;
-	cmBlind[0].setSendState(200 - pos);											// send position
+	pos = (pos > 200) ? 200 : 200 - pos;
+	cmBlind[0].setSendState(pos);												// send position
 }
 
 void mototPoll() {
@@ -272,6 +278,17 @@ void motorLeft() {
 void motorStop() {
 	digitalWrite(A0, 0);
 	digitalWrite(A1, 0);
+
+	// store to  eeprom
+	setEEPromBlock(0x03FF, 1, (void*)&motorLastDirection);						// save motorLastDirection to byte 1024 in eeprom
+	setEEPromBlock(0x03FC, 2, (void*)&travelCount);								// save travelCount to byte 1022 in eeprom
+
+
+
+	// duplicate code. please fix
+	uint8_t pos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
+	pos = (pos > 200) ? 200 : 200 - pos;
+	setEEPromBlock(0x03FB, 2, (void*)&pos);										// save last pos to byte 1022 in eeprom
 
 	_delay_ms(100);
 }

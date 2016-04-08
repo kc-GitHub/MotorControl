@@ -16,7 +16,7 @@
  * @param init(uint8_t):                 pointer to user init function
  * @param updateState(uint8_t, uint8_t): pointer to user updateState function
  */
-void cmBlind::config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint32_t)) {
+void cmBlind::config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint32_t), uint8_t initialPos) {
 
 	fInit = init;
 	fUpdateState = updateState;
@@ -29,8 +29,10 @@ void cmBlind::config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint
 	nxtState = AS_CM_JT_OFF;
 	l3 = ((s_l3*)&lstPeer);															// initialize l3 with values of short section
 	adjTmrStatus = AS_MODULE_TIMER_DONE;
-	motorValue = 0;
-	motorValueOld = 0;
+	motorValue = initialPos;
+	motorValueOld = initialPos;
+	modState = initialPos;
+	setState = modState;
 
 	motorState = AS_MODULE_MOTOR_STATE_STOP;
 	motorStateOld = AS_MODULE_MOTOR_STATE_STOP;
