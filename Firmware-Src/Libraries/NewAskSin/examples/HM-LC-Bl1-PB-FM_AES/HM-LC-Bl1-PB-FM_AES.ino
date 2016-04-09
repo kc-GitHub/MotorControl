@@ -23,11 +23,15 @@
 // function forward declaration
 void mototPoll();
 
-uint8_t  motorState = 0;
-uint8_t  motorStateLast = 0;
+// set to 1 for reverse the motor direction
+// ToDo: should be set via register
+uint8_t  reverseMotorDir    = 1;
+
+uint8_t  motorState         = 0;
+uint8_t  motorStateLast     = 0;
 uint8_t  motorLastDirection = 0;
-uint8_t  motorDirLast = MOTOR_LEFT;
-uint8_t  endSwitchState = 1;
+uint8_t  motorDirLast       = MOTOR_LEFT;
+uint8_t  endSwitchState     = 1;
 
 int16_t  travelCount = 0;
 
@@ -83,12 +87,15 @@ void setup() {
 		getDataFromAddressSection(HMSR, 0, ADDRESS_SECTION_START + 2, 10);		// get hmid from bootloader section
 		getDataFromAddressSection(HMID, 0, ADDRESS_SECTION_START + 12, 3);		// get serial number from bootloader section
 
-		dbg << F("Get HMID and HMSR from Bootloader-Area: ") << "\n";
+		#ifdef SER_DBG
+			dbg << F("Get HMID and HMSR from Bootloader-Area: ") << "\n";
+		#endif
 	#endif
 
 	#ifdef SER_DBG
 		dbg << F("HMID: ")  << _HEX(HMID,3)        << "\n";
 		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "\n\n";
+		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "(" << (char*)HMSR << ")\n\n";
 		dbg << F("MAID: ")  << _HEX(MAID,3)        << "\n";
 //		dbg << F("HmKey: ") << _HEX(HMKEY, 16)     << "\n";
 //		dbg << F("KeyId: ") << _HEX(hmKeyIndex, 1) << "\n";
@@ -230,11 +237,19 @@ void mototPoll() {
 
 		} else if (motorState == MOTOR_LEFT && travelCount >= 0) {
 			motorLastDirection = MOTOR_LEFT;
-			motorLeft();
+			if (reverseMotorDir) {
+				motorRight();
+			} else {
+				motorLeft();
+			}
 
 		} else if (motorState == MOTOR_RIGHT && travelCount < travelMax) {
 			motorLastDirection = MOTOR_RIGHT;
-			motorRight();
+			if (reverseMotorDir) {
+				motorLeft();
+			} else {
+				motorRight();
+			}
 		}
 	}
 
