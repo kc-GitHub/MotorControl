@@ -395,7 +395,7 @@ void AS::sendSensor_event(uint8_t channel, uint8_t burst, uint8_t *payload) {
 void AS::sendEvent(uint8_t channel, uint8_t burst, uint8_t mType, uint8_t *payload, uint8_t pLen) {
 	if (pLen>16) {
 		#ifdef AS_DBG
-			dbg << "AS::send_generic_event("<<cnl<<","<<burst<<",0x"<<_HEX(&mTyp,1)<<","<<len<<",...): payload exceeds maximum length of 16\n";
+			dbg << "AS::send_generic_event(" << channel << "," << burst << ",0x" << _HEX(&mType,1) << "," << pLen << ",...): payload exceeds maximum length of 16\n";
 		#endif
 		pLen = 16;
 	}
@@ -703,9 +703,10 @@ void AS::processMessage(void) {
 			 if (!memcmp(rv.buf+16, rv.prevBuf+1, 10)) {										// compare bytes 7-17 of decrypted data with bytes 2-12 of msgOriginal
 				#ifdef AES_DBG
 					dbg << F("Signature check success\n");
+					// Todo: Process saved message
 				#endif
 
-				sendAckAES(authAck);																// send AES-Ack
+				sendAckAES(authAck);															// send AES-Ack
 
 				if (keyPartIndex == AS_STATUS_KEYCHANGE_INACTIVE) {
 					if (rv.mBdy.mTyp == AS_MESSAGE_CONFIG) {
@@ -715,9 +716,9 @@ void AS::processMessage(void) {
 					}
 
 				} else if (keyPartIndex == AS_STATUS_KEYCHANGE_ACTIVE2) {
-					setEEPromBlock(15, 16, newHmKey);													// store HMKEY
+					setEEPromBlock(15, 16, newHmKey);											// store HMKEY
 					getEEPromBlock(15, 16, HMKEY);
-					setEEPromBlock(14, 1, newHmKeyIndex);												// store used key index
+					setEEPromBlock(14, 1, newHmKeyIndex);										// store used key index
 					hmKeyIndex[0] = newHmKeyIndex[0];
 					#ifdef AES_DBG
 						dbg << F("newHmKey: ") << _HEX(newHmKey, 16) << F(" ID: ") << _HEXB(hmKeyIndex[0]) << '\n';
@@ -732,22 +733,22 @@ void AS::processMessage(void) {
 				#endif
 			}
 
-		} else if ((rv.mBdy.mTyp == AS_MESSAGE_KEY_EXCHANGE)) {										// AES Key Exchange
+		} else if ((rv.mBdy.mTyp == AS_MESSAGE_KEY_EXCHANGE)) {									// AES Key Exchange
 			processMessageKeyExchange();
 
 	#endif
 
-	} else if (rv.mBdy.mTyp == AS_MESSAGE_ACTION) {													// action message
+	} else if (rv.mBdy.mTyp == AS_MESSAGE_ACTION) {												// action message
 		#ifdef SUPPORT_AES
 
 			uint8_t aesActiveForReset = 0;
-			if (rv.mBdy.by10 == AS_ACTION_RESET && rv.mBdy.by11 == 0x00) {							// device reset requested
-				aesActiveForReset = checkAnyChannelForAES();										// check if AES activated for any channel			}
+			if (rv.mBdy.by10 == AS_ACTION_RESET && rv.mBdy.by11 == 0x00) {						// device reset requested
+				aesActiveForReset = checkAnyChannelForAES();									// check if AES activated for any channel			}
 			}
 
 			// check if AES for the channel active or aesActiveForReset @see above
 			if (ee.getRegAddr(rv.mBdy.by11, 1, 0, AS_REG_L1_AES_ACTIVE) == 1 || aesActiveForReset == 1) {
-				memcpy(rv.prevBuf, rv.buf, rv.buf[0]+1);											// remember this message
+				memcpy(rv.prevBuf, rv.buf, rv.buf[0]+1);										// remember this message
 				sendSignRequest();
 			} else {
 		#endif
