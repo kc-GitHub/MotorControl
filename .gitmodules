@@ -1,0 +1,3 @@
+[submodule "Firmware-Src/Libraries/NewAskSin"]
+	path = Firmware-Src/Libraries/NewAskSin
+	url = git@github.com:trilu2000/NewAskSin.git

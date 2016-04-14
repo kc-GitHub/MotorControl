@@ -3,11 +3,11 @@
 
 	//- load library's --------------------------------------------------------------------------------------------------------
 	#include "hardware.h"
-	#include <cmBlind.h>
+	#include "cmMyBlind.h"
 	#include "hmkey.h"
 
 	AS hm;																			// asksin framework
-	cmBlind cmBlind[1];																// create 1 instances of channel module
+	cmMyBlind cmMyBlind[1];															// create 1 instances of channel module
 	extern void initBlind(uint8_t channel);											// declare function to jump in
 	extern void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb);	// declare function to jump in
 
@@ -122,8 +122,8 @@
 		hm.pw.setMode(POWER_MODE_NO_SLEEP);											// set power management mode
 
 		// register user modules
-		cmBlind[0].regInHM(1, 3, &hm);												// register user module
-		cmBlind[0].config(&initBlind, &blindUpdateState, initialPos);				// configure user module
+		cmMyBlind[0].regInHM(1, 3, &hm);											// register user module
+		cmMyBlind[0].config(&initBlind, &blindUpdateState, initialPos);				// configure user module
 	}
 
 	/**

@@ -2,13 +2,13 @@
 // AskSin driver implementation
 // 2013-08-03 <trilu@gmx.de> Creative Commons - http://creativecommons.org/licenses/by-nc-sa/3.0/de/
 //- -----------------------------------------------------------------------------------------------------------------------
-//- AskSin cmBlind class ----------------------------------------------------------------------------------------------------
+//- AskSin cmMyBlind class ----------------------------------------------------------------------------------------------------
 //- with a lot of support from martin876 at FHEM forum
 //- -----------------------------------------------------------------------------------------------------------------------
 
-#include <cmBlind.h>
+#include "cmMyBlind.h"
 
-#define CM_BLIND_DBG
+//#define CM_BLIND_DBG
 
 /**
  * @brief Config the blind module
@@ -16,7 +16,7 @@
  * @param init(uint8_t):                 pointer to user init function
  * @param updateState(uint8_t, uint8_t): pointer to user updateState function
  */
-void cmBlind::config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint32_t), uint8_t initialPos) {
+void cmMyBlind::config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint32_t), uint8_t initialPos) {
 
 	fInit = init;
 	fUpdateState = updateState;
@@ -49,7 +49,7 @@ void cmBlind::config(void init(uint8_t), void updateState(uint8_t, uint8_t, uint
  * @param rampTime:     pointer to ramp time
  * @param durationTime: pointer to duration time
  */
-void cmBlind::trigger11(uint8_t setValue, uint8_t *rampTime, uint8_t *durationTime) {
+void cmMyBlind::trigger11(uint8_t setValue, uint8_t *rampTime, uint8_t *durationTime) {
 //	modState = (setValue > 200) ? 200 : setValue;									// setValue max 200
 
 	// some sanity
@@ -80,7 +80,7 @@ void cmBlind::trigger11(uint8_t setValue, uint8_t *rampTime, uint8_t *durationTi
  * @param keyLong:  1 for key pressed long
  * @param keyCount: the key counter. increments on each key release
  */
-void cmBlind::trigger40(uint8_t keyLong, uint8_t keyCount) {
+void cmMyBlind::trigger40(uint8_t keyLong, uint8_t keyCount) {
 	// some sanity
 	delayTmr.set(0);																// reset delay timer
 
@@ -95,7 +95,7 @@ void cmBlind::trigger40(uint8_t keyLong, uint8_t keyCount) {
 	stateMachine_nextStep((keyLong+1), keyCount, 0);
 }
 
-void   cmBlind::stateMachine_nextStep_disabled(uint8_t keyCode, uint8_t keyCount, uint8_t sensorValue) {
+void   cmMyBlind::stateMachine_nextStep_disabled(uint8_t keyCode, uint8_t keyCount, uint8_t sensorValue) {
 	fKeyCount = keyCount;															// remember message counter
 
 	l3 = (keyCode == AS_CM_KEYCODE_SHORT) ? ((s_l3*)&lstPeer) : ((s_l3*)&lstPeer + 1);	// select short or long register values
@@ -122,7 +122,7 @@ void   cmBlind::stateMachine_nextStep_disabled(uint8_t keyCode, uint8_t keyCount
 // ToDo:
 // Quick Hack so the module work in my enviroment
 // must be corrected
-void   cmBlind::stateMachine_nextStep(uint8_t keyCode, uint8_t keyCount, uint8_t sensorValue) {
+void   cmMyBlind::stateMachine_nextStep(uint8_t keyCode, uint8_t keyCount, uint8_t sensorValue) {
 	fKeyCount = keyCount;															// remember message counter
 
 	l3 = (keyCode == AS_CM_KEYCODE_SHORT) ? ((s_l3*)&lstPeer) : ((s_l3*)&lstPeer + 1);	// select short or long register values
@@ -142,7 +142,7 @@ void   cmBlind::stateMachine_nextStep(uint8_t keyCode, uint8_t keyCount, uint8_t
  *
  * TODO: make ready
  */
-void   cmBlind::stateMachine_poll(uint8_t keyCode, uint8_t keyCount, uint8_t sensorValue) {
+void   cmMyBlind::stateMachine_poll(uint8_t keyCode, uint8_t keyCount, uint8_t sensorValue) {
 	curStateCount = (curStateCount < 255) ? curStateCount++ : 255;
 
 	if (l3->ACTION_TYPE != AS_CM_ACTIONTYPE_JUMP_TO_TARGET) return;							// only valid for jump table
@@ -258,7 +258,7 @@ void   cmBlind::stateMachine_poll(uint8_t keyCode, uint8_t keyCount, uint8_t sen
 	}
 }
 
-uint32_t cmBlind::calcAdjTime(uint8_t curValue, uint8_t direction, uint32_t maxTime) {
+uint32_t cmMyBlind::calcAdjTime(uint8_t curValue, uint8_t direction, uint32_t maxTime) {
 	uint32_t adjTime = 0;
 
 	adjTime = (uint32_t) (maxTime * curValue / 200);
@@ -269,7 +269,7 @@ uint32_t cmBlind::calcAdjTime(uint8_t curValue, uint8_t direction, uint32_t maxT
 	return adjTime;
 }
 
-uint8_t cmBlind::calcMotorValue(uint8_t motorState) {
+uint8_t cmMyBlind::calcMotorValue(uint8_t motorState) {
 	uint8_t motorValue = 0;
 	uint32_t timeRemain = adjTmr.remain();
 
@@ -294,7 +294,7 @@ uint8_t cmBlind::calcMotorValue(uint8_t motorState) {
  * @param msgLong:  1 for a long key message
  * @param keyCount: the key counter. increments on each key release
  */
-void cmBlind::trigger41(uint8_t msgLong, uint8_t keyCount, uint8_t msgVal) {
+void cmMyBlind::trigger41(uint8_t msgLong, uint8_t keyCount, uint8_t msgVal) {
 	uint8_t isLng = (msgLong & 0x40) ? 1 : 0;												// is it a long message?
 	uint8_t ctTbl;
 
@@ -331,7 +331,7 @@ void cmBlind::trigger41(uint8_t msgLong, uint8_t keyCount, uint8_t msgVal) {
  * @param curState:   reference to curState
  * @return            the nextState
  */
-uint8_t cmBlind::stateMachine_setNextState(uint8_t curState) {
+uint8_t cmMyBlind::stateMachine_setNextState(uint8_t curState) {
 	uint8_t nextState;
 
 	// SwJtOn {no=>0, dlyOn=>1, rampOn=>2, on=>3, dlyOff=>4, rampOff=>5, off=>6}
@@ -365,7 +365,7 @@ uint8_t cmBlind::stateMachine_setNextState(uint8_t curState) {
 	return nextState;
 }
 
-inline void cmBlind::updateState(void) {
+inline void cmMyBlind::updateState(void) {
 	if ( (adjTmrStatus == AS_MODULE_TIMER_ARMED) && adjTmr.done() ) {						// Check if timer done and can trigger
 		adjTmrStatus = AS_MODULE_TIMER_TRIGGERT;
 	}
@@ -410,7 +410,7 @@ inline void cmBlind::updateState(void) {
  *
  * TODO: make ready
  */
-inline void cmBlind::sendState(void) {
+inline void cmMyBlind::sendState(void) {
 	uint8_t  extState = AS_CM_EXTSTATE_NONE;										// extended state (down, up, running)
 
 	if (stateToSend == AS_CM_STATETOSEND_NONE) return;								// nothing to do
@@ -449,13 +449,13 @@ inline void cmBlind::sendState(void) {
 	}
 }
 
-void cmBlind::setSendState(uint8_t state) {
+void cmMyBlind::setSendState(uint8_t state) {
 	modState = state;
 	setState = state;
 	hm->sendINFO_ACTUATOR_STATUS(regCnl, modState, AS_CM_EXTSTATE_NONE);		// send status
 }
 
-void cmBlind::poll(void) {
+void cmMyBlind::poll(void) {
 	updateState();																	// check if something is to be set on the PWM channel
 	sendState();																	// check if there is some status to send
 
@@ -473,7 +473,7 @@ void cmBlind::poll(void) {
  *
  * TODO: Should check against internal device kay config
  */
-inline void cmBlind::setToggle(void) {
+inline void cmMyBlind::setToggle(void) {
 	#ifdef CM_BLIND_DBG
 		dbg << F("TOGGLE_BLIND\n");
 	#endif
@@ -493,7 +493,7 @@ inline void cmBlind::setToggle(void) {
 /**
  * @brief it's only for information purpose if channel config was changed (List0/1 or List3/4)
  */
-void cmBlind::configCngEvent(void) {
+void cmMyBlind::configCngEvent(void) {
 //	#ifdef CM_BLIND_DBG
 		dbg << F("Channel config changed, lst1: ") << _HEX(((uint8_t*)&lstCnl), sizeof(s_lstCnl)) << '\n';
 //	#endif
@@ -531,7 +531,7 @@ void cmBlind::configCngEvent(void) {
  *        after setting the new value we have to send an enhanced ACK:
  *           <- 0E E7 80 02 1F B7 4A 63 19 63 01 01 C8 00 54
  */
-void cmBlind::pairSetEvent(uint8_t *data, uint8_t len) {
+void cmMyBlind::pairSetEvent(uint8_t *data, uint8_t len) {
 	#ifdef CM_BLIND_DBG
 		dbg << F("PSE, value:") << _HEXB(data[0]);
 		if (len > 1) { dbg << F(", modRampTime: ") << _HEX((data+1), 2); };
@@ -554,7 +554,7 @@ void cmBlind::pairSetEvent(uint8_t *data, uint8_t len) {
  * @brief We received a status request.
  *        Appropriate answer is an InfoActuatorStatus message
  */
-inline void cmBlind::pairStatusReq(void) {
+inline void cmMyBlind::pairStatusReq(void) {
 	#ifdef CM_BLIND_DBG
 		dbg << F("statusRequest\n");
 	#endif
@@ -572,7 +572,7 @@ inline void cmBlind::pairStatusReq(void) {
  *
  *       Appropriate answer is an ACK
  */
-void cmBlind::peerMsgEvent(uint8_t type, uint8_t *data, uint8_t len) {
+void cmMyBlind::peerMsgEvent(uint8_t type, uint8_t *data, uint8_t len) {
 	#ifdef CM_BLIND_DBG
 		dbg << F("peer message type: ")  << _HEXB(type) << F(", data: ")  << _HEX(data, len) << '\n';
 	#endif
@@ -602,12 +602,12 @@ void cmBlind::peerMsgEvent(uint8_t type, uint8_t *data, uint8_t len) {
 /**
  * @brief Register module in HM
  */
-void cmBlind::regInHM(uint8_t cnl, uint8_t lst, AS *instPtr) {
+void cmMyBlind::regInHM(uint8_t cnl, uint8_t lst, AS *instPtr) {
 	hm = instPtr;																	// set pointer to the HM module
 	hm->rg.regInAS(
 		cnl,
 		lst,
-		s_mod_dlgt(this,&cmBlind::hmEventCol),
+		s_mod_dlgt(this,&cmMyBlind::hmEventCol),
 		(uint8_t*)&lstCnl,
 		(uint8_t*)&lstPeer
 	);
@@ -618,7 +618,7 @@ void cmBlind::regInHM(uint8_t cnl, uint8_t lst, AS *instPtr) {
 /**
  * @brief HM event controller
  */
-void cmBlind::hmEventCol(uint8_t by3, uint8_t by10, uint8_t by11, uint8_t *data, uint8_t len) {
+void cmMyBlind::hmEventCol(uint8_t by3, uint8_t by10, uint8_t by11, uint8_t *data, uint8_t len) {
 //	dbg << "hmEventCol >>>>>>> by3:" << by3 << " by10:" << by10 << " d:" << _HEX(data, len) << '\n'; _delay_ms(100);
 	if      ((by3 == 0x00) && (by10 == 0x00)) poll();
 	else if ((by3 == 0x00) && (by10 == 0x01)) setToggle();
@@ -639,7 +639,7 @@ void cmBlind::hmEventCol(uint8_t by3, uint8_t by10, uint8_t by11, uint8_t *data,
  *
  *        No need for sending an answer, but we could set default data to the respective list3/4
  */
-void cmBlind::peerAddEvent(uint8_t *data, uint8_t len) {
+void cmMyBlind::peerAddEvent(uint8_t *data, uint8_t len) {
 	#ifdef CM_BLIND_DBG
 		dbg << F("peerAddEvent: peerCh1: ") << _HEXB(data[0]) << F(", peerCh2: ") << _HEXB(data[1]) << F(", peerIndex1: ") << _HEXB(data[2]) << F(", peerIndex2: ") << _HEXB(data[3]) << '\n';
 	#endif
@@ -659,7 +659,7 @@ void cmBlind::peerAddEvent(uint8_t *data, uint8_t len) {
 	}
 }
 
-inline void cmBlind::firstStart(void) {
+inline void cmMyBlind::firstStart(void) {
 	#ifdef CM_BLIND_DBG
 		dbg << F("firstStart\n");
 	#endif

@@ -6,13 +6,13 @@
  */
 
 
-#define SER_DBG
+//#define SER_DBG
 
 //- load library's --------------------------------------------------------------------------------------------------------
 #include "register.h"															// device configuration file
 #include <AS.h>
 
-#define USE_ADRESS_SECTION      0
+#define USE_ADRESS_SECTION      1
 
 #define MOTOR_STOP              0
 #define MOTOR_LEFT              1
@@ -200,7 +200,7 @@ void motorInit() {
 void sendPosition() {
 	uint8_t pos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
 	pos = (pos > 200) ? 200 : 200 - pos;
-	cmBlind[0].setSendState(pos);												// send position
+	cmMyBlind[0].setSendState(pos);												// send position
 }
 
 void mototPoll() {
