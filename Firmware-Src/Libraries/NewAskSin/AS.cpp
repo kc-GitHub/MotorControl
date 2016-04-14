@@ -268,15 +268,13 @@ void AS::sendNACK_TARGET_INVALID(void) {
  */
 void AS::sendINFO_ACTUATOR_STATUS(uint8_t channel, uint8_t state, uint8_t flag) {
 	sn.mBdy.mLen = 0x0E;
-	uint8_t cnt;
+	uint8_t cnt = sn.msgCnt++;
 
 	if ((rv.mBdy.mTyp == AS_MESSAGE_CONFIG) && (rv.mBdy.by11 == AS_CONFIG_STATUS_REQUEST)) {
 		cnt = rv.mBdy.mCnt;
-	} else {
-		cnt = sn.msgCnt++;
 	}
 
-	sn.mBdy.mFlg.BIDI = (isEmpty(MAID,3))?0:1;
+	sn.mBdy.mFlg.BIDI = (isEmpty(MAID,3)) ? 0 : 1;
 	sn.mBdy.by10      = AS_INFO_ACTUATOR_STATUS;
 	sn.mBdy.by11      = channel;
 	sn.mBdy.pyLd[0]   = state;
@@ -395,7 +393,7 @@ void AS::sendSensor_event(uint8_t channel, uint8_t burst, uint8_t *payload) {
 void AS::sendEvent(uint8_t channel, uint8_t burst, uint8_t mType, uint8_t *payload, uint8_t pLen) {
 	if (pLen>16) {
 		#ifdef AS_DBG
-			dbg << "AS::send_generic_event(" << channel << "," << burst << ",0x" << _HEX(&mType,1) << "," << pLen << ",...): payload exceeds maximum length of 16\n";
+			dbg << "AS::sendGenericEvent(" << channel << "," << burst << ",0x" << _HEX(&mType,1) << "," << pLen << ",...): payload exceeds max len of 16\n";
 		#endif
 		pLen = 16;
 	}
@@ -619,7 +617,7 @@ void AS::processMessage(void) {
 			processMessageConfigStatusRequest(by10);
 
 		} else {
-			processMessageConfigAESProtected(by10);
+			processMessageConfigAESProtected();
 		}
 
 	} else if (rv.mBdy.mTyp == AS_MESSAGE_RESPONSE) {
@@ -702,15 +700,15 @@ void AS::processMessage(void) {
 			// memcmp returns 0 if compare true
 			 if (!memcmp(rv.buf+16, rv.prevBuf+1, 10)) {										// compare bytes 7-17 of decrypted data with bytes 2-12 of msgOriginal
 				#ifdef AES_DBG
-					dbg << F("Signature check success\n");
-					// Todo: Process saved message
+					dbg << F("Signature check OK\n");
 				#endif
 
 				sendAckAES(authAck);															// send AES-Ack
 
 				if (keyPartIndex == AS_STATUS_KEYCHANGE_INACTIVE) {
 					if (rv.mBdy.mTyp == AS_MESSAGE_CONFIG) {
-						processMessageConfig(rv.mBdy.by10 - 1);
+						processMessageConfig();
+
 					} else if (rv.mBdy.mTyp == AS_MESSAGE_ACTION) {
 						processMessageAction();
 					}
@@ -867,7 +865,7 @@ void AS::processMessage(void) {
 		aes128_dec(rv.buf+10, &ctx);															// decrypt payload width HMKEY first time
 
 		#ifdef AES_DBG
-			dbg << F("decrypted buffer: ") << _HEX(rv.buf+10, 16) << '\n';
+			dbg << F("decrypted buf: ") << _HEX(rv.buf+10, 16) << '\n';
 		#endif
 
 		if (rv.buf[10] == 0x01) {																// the decrypted data must start with 0x01
@@ -1028,7 +1026,7 @@ inline void AS::processMessageConfigPeerListReq(void) {
 	// answer will send from sendsList(void)
 }
 
-inline void AS::processMessageConfigAESProtected(uint8_t by10) {
+inline void AS::processMessageConfigAESProtected() {
 	#ifdef SUPPORT_AES
 		uint8_t aesActive = checkAnyChannelForAES();											// check if AES activated for any channel
 		if (aesActive == 1) {
@@ -1037,7 +1035,7 @@ inline void AS::processMessageConfigAESProtected(uint8_t by10) {
 
 		} else {
 	#endif
-			processMessageConfig(by10);
+			uint8_t ackOk = processMessageConfig();
 	#ifdef SUPPORT_AES
 		}
 	#endif
@@ -1047,11 +1045,11 @@ inline void AS::processMessageConfigAESProtected(uint8_t by10) {
  * @brief Process all configuration messages with write actions.
  *        TODO: respect AES signing
  */
-void AS::processMessageConfig(uint8_t by10) {
+uint8_t AS::processMessageConfig() {
 	uint8_t ackOk = 1;
 
 	if (rv.mBdy.by11 == AS_CONFIG_PEER_ADD) {													// CONFIG_PEER_ADD
-		ackOk = configPeerAdd(by10);
+		ackOk = configPeerAdd(rv.mBdy.by10 -1);
 
 	} else if (rv.mBdy.by11 == AS_CONFIG_PEER_REMOVE) {											// CONFIG_PEER_REMOVE
 		ackOk = configPeerRemove();

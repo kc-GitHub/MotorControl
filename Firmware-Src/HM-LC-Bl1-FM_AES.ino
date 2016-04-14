@@ -95,6 +95,7 @@ void setup() {
 	#ifdef SER_DBG
 		dbg << F("HMID: ")  << _HEX(HMID,3)        << "\n";
 		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "\n\n";
+		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "(" << (char*)HMSR << ")\n\n";
 		dbg << F("MAID: ")  << _HEX(MAID,3)        << "\n";
 //		dbg << F("HmKey: ") << _HEX(HMKEY, 16)     << "\n";
 //		dbg << F("KeyId: ") << _HEX(hmKeyIndex, 1) << "\n";
