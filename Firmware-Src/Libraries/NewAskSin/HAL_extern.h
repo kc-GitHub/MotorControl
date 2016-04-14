@@ -16,7 +16,7 @@ uint8_t ccSendByte(uint8_t data) {
 	return SPDR;
 }
 uint8_t ccGetGDO0() {
-	uint8_t x = chkPCINT(CC_GDO0_PCIE, CC_GDO0_INT);
+	uint8_t x = chkPCINT(CC_GDO0_PCIE, CC_GDO0_INT, 0);							// check PCINT without debouncing
 	//if (x>1) dbg << "x:" << x << '\n';
 
 	if (x == 2 ) return 1;														// falling edge detected
@@ -79,12 +79,12 @@ void    initPCINT(void) {
  * @param port
  * @param pin
  */
-uint8_t chkPCINT(uint8_t port, uint8_t pin) {
+uint8_t chkPCINT(uint8_t port, uint8_t pin, uint8_t debounce) {
 	uint8_t cur  = pcInt[port].cur  & _BV(pin);
 	uint8_t prev = pcInt[port].prev & _BV(pin);
 
-	if ((cur == prev) || ( (getMillis() - pcInt[port].time) < DEBOUNCE )) {		// old and new bit is similar, or DEBOUNCE time is running
-		return (pcInt[port].cur & _BV(pin)) ? 1 : 0;
+	if ((cur == prev) || (debounce && ((getMillis() - pcInt[port].time) < DEBOUNCE ))) {		// old and new bit is similar, or DEBOUNCE time is running
+		return (pcInt[port].prev & _BV(pin)) ? 1 : 0;
 	}
 
 	//if ( (getMillis() - pcInt[port].time) < DEBOUNCE ) {
