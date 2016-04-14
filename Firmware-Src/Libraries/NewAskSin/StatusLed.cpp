@@ -27,6 +27,7 @@ void    LD::init(uint8_t leds, AS *ptrMain) {
 	pHM = ptrMain;
 	bLeds = leds;
 }
+
 void    LD::set(ledStat stat) {
 	if (!bLeds) return;																		// no led available, skip...
 	#ifdef LD_DBG
