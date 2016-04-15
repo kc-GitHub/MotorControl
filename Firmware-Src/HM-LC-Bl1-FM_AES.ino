@@ -1,8 +1,9 @@
 /*
  * Todo's:
+ *
  * - Statemachine for the channel
  * - set motor reverse via register
- *
+ * - register for sendStatusIntervall
  */
 
 
@@ -17,19 +18,18 @@
 #define MOTOR_STOP              0
 #define MOTOR_LEFT              1
 #define MOTOR_RIGHT             2
-
+#define TRAVEL_TIME_MAX         1000											// max travel time without impulses
 #define TRAVEL_COUNT_MAX        32768											// ABS value of max travel count (max = 32768)
 
 // function forward declaration
 void motorPoll();
 
 // set to 1 for reverse the motor direction
-// ToDo: should be set via register
 uint8_t  reverseMotorDir    = 1;
 
-uint8_t  motorState         = 0;
-uint8_t  motorStateLast     = 0;
-uint8_t  motorLastDirection = 0;
+uint8_t  motorState;
+uint8_t  motorStateLast     = MOTOR_STOP;
+uint8_t  motorLastDirection = MOTOR_STOP;
 uint8_t  motorDirLast       = MOTOR_LEFT;
 uint8_t  endSwitchState     = 1;
 
@@ -37,10 +37,10 @@ int16_t  travelCount = 0;
 
 int16_t  travelCountOld = 0;
 uint32_t travelTimeStart = 0;
-uint16_t travelTimeMax = 1000;													// max travel time without impulses
 int16_t  travelMax = 0;
 uint32_t impulseSwitchTime = 0;
 uint32_t intervallTimeStart  = 0;
+
 uint16_t sendStatusIntervall = 2000;											// time after status update is send while traveling
 
 /**
@@ -197,13 +197,17 @@ void motorInit() {
 	regPCIE(SW_END_PCIE);														// set the pin change interrupt
 	regPCINT(SW_END_PCMSK, SW_END_INT);											// description is in hal.h
 
-	// initialize the motor controll pins
-	pinOutput(MOTOR_CTRL1_DDR, MOTOR_CTRL1_PIN);									// MOTOR_CTRL1 to output
-	pinOutput(MOTOR_CTRL2_DDR, MOTOR_CTRL2_PIN);									// MOTOR_CTRL2 to output
+	// initialize the motor control pins
+	pinOutput(MOTOR_CTRL1_DDR, MOTOR_CTRL1_PIN);								// MOTOR_CTRL1 to output
+	pinOutput(MOTOR_CTRL2_DDR, MOTOR_CTRL2_PIN);								// MOTOR_CTRL2 to output
 
 	motorState = MOTOR_STOP;
 	motorStateLast = MOTOR_STOP;
 	motorLastDirection = MOTOR_STOP;
+	motorDirLast = MOTOR_STOP;
+	endSwitchState = 1;
+	travelMax = 0;
+
 	travelCountOld = travelCount;
 }
 
@@ -234,7 +238,7 @@ void motorPoll() {
 	if (motorState != MOTOR_STOP) {
 		setPinHigh(LED_GRN_PORT, LED_GRN_PIN);									// set green LED on at traveling
 
-		if ( (getMillis() - travelTimeStart) > travelTimeMax ) {				// travel impulse missing
+		if ( (getMillis() - travelTimeStart) > TRAVEL_TIME_MAX ) {				// travel impulse missing
 			motorState = MOTOR_STOP;
 
 			#ifdef SER_DBG
@@ -247,8 +251,7 @@ void motorPoll() {
 	if (motorState != motorStateLast) {
 		if        (motorState == MOTOR_STOP) {
 			setPinLow(LED_GRN_PORT, LED_GRN_PIN);								// set green LED off at stop
-//			motorStop();
-			motorBreak();
+			motorStopBrake();
 
 		} else if (motorState == MOTOR_LEFT) {
 			motorLastDirection = MOTOR_LEFT;
@@ -288,7 +291,7 @@ void motorPoll() {
 			intervallTimeStart = getMillis();									// reset send delay every time if motor is running
 		} else {
 			intervallTimeStart = 0;
-			motorStop();														// release motor break
+			motorStop();														// release motor brake
 		}
 	}
 }
@@ -335,13 +338,13 @@ void motorStop() {
 	_delay_ms(100);
 }
 
-void motorBreak() {
+void motorStopBrake() {
 	motorStop();
 	setPinHigh(MOTOR_CTRL1_PORT, MOTOR_CTRL1_PIN);
 	setPinHigh(MOTOR_CTRL2_PORT, MOTOR_CTRL2_PIN);
 
 	#ifdef SER_DBG
-		dbg << F("motorBreak \n");
+		dbg << F("motorStopBrake \n");
 	#endif
 }
 
