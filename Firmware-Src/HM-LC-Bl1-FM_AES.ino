@@ -146,6 +146,7 @@ void initBlind(uint8_t channel) {
  */
 void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb) {			// rrttb = REFERENCE_RUNNING_TIME_BOTTOM_TOP
 	travelMax = (uint16_t)(rrttb / 1000);
+	travelMax = (travelMax == 0) ? 200 : travelMax;								// if travelMax = 0 then set travelMax to 200
 
 	if ((state == 200 && motorStateLast == MOTOR_LEFT) || (state == 0 && motorStateLast == MOTOR_RIGHT)) {
 		motorState = MOTOR_STOP;
@@ -235,7 +236,7 @@ void mototPoll() {
 //			motorStop();
 			motorBreak();
 
-		} else if (motorState == MOTOR_LEFT && travelCount >= 0) {
+		} else if (motorState == MOTOR_LEFT) {
 			motorLastDirection = MOTOR_LEFT;
 			if (reverseMotorDir) {
 				motorRight();
@@ -330,7 +331,9 @@ ISR (PCINT1_vect) {
 			(motorState == MOTOR_LEFT || (motorState == MOTOR_STOP && motorLastDirection == MOTOR_LEFT) ) &&
 			travelCount > -TRAVEL_COUNT_MAX) ) {
 
-			travelCount--;
+			if (endSwitchState) {												// negative count only in end switch not active
+				travelCount--;
+			}
 
 		} else if ( (
 			(motorState == MOTOR_RIGHT || (motorState == MOTOR_STOP && motorLastDirection == MOTOR_RIGHT) ) &&
