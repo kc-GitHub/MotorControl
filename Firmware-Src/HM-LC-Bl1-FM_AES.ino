@@ -21,7 +21,7 @@
 #define TRAVEL_COUNT_MAX        32768											// ABS value of max travel count (max = 32768)
 
 // function forward declaration
-void mototPoll();
+void motorPoll();
 
 // set to 1 for reverse the motor direction
 // ToDo: should be set via register
@@ -129,22 +129,13 @@ void loop() {
 	/*
 	 * At this point you can write your own code
 	 */
-	mototPoll();
+	motorPoll();
 }
 
 /**
  * @brief Init the blind channel modul
  */
 void initBlind(uint8_t channel) {
-	digitalWrite(A2, HIGH);
-	pinInput(SW_IMPULSE_DDR, SW_IMPULSE_PIN);									// set channel to input
-	regPCIE(SW_IMPULSE_PCIE);													// set the pin change interrupt
-	regPCINT(SW_IMPULSE_PCMSK, SW_IMPULSE_INT);									// description is in hal.h
-
-	digitalWrite(A3, HIGH);
-	pinInput(SW_END_DDR, SW_END_PIN);											// set channel to input
-	regPCIE(SW_END_PCIE);														// set the pin change interrupt
-	regPCINT(SW_END_PCMSK, SW_END_INT);											// description is in hal.h
 }
 
 /**
@@ -194,9 +185,21 @@ void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb) {			// rrt
 }
 
 void motorInit() {
-	/** Debug start */
-	pinMode(A0, OUTPUT);
-	pinMode(A1, OUTPUT);
+	// initialize the impulse input 1
+	setPinHigh(SW_IMPULSE_PORT, SW_IMPULSE_PIN);								// set pullup for impulse input 1
+	pinInput(SW_IMPULSE_DDR, SW_IMPULSE_PIN);									// set impulse input 1 to input
+	regPCIE(SW_IMPULSE_PCIE);													// set the pin change interrupt
+	regPCINT(SW_IMPULSE_PCMSK, SW_IMPULSE_INT);									// description is in hal.h
+
+	// initialize the switch input
+	setPinHigh(SW_END_PORT, SW_END_PIN);										// set pullup for end switch input
+	pinInput(SW_END_DDR, SW_END_PIN);											// end switch input to input
+	regPCIE(SW_END_PCIE);														// set the pin change interrupt
+	regPCINT(SW_END_PCMSK, SW_END_INT);											// description is in hal.h
+
+	// initialize the motor controll pins
+	pinOutput(MOTOR_CTRL1_DDR, MOTOR_CTRL1_PIN);									// MOTOR_CTRL1 to output
+	pinOutput(MOTOR_CTRL2_DDR, MOTOR_CTRL2_PIN);									// MOTOR_CTRL2 to output
 
 	motorState = MOTOR_STOP;
 	motorStateLast = MOTOR_STOP;
@@ -210,7 +213,7 @@ void sendPosition() {
 	cmMyBlind[0].setSendState(pos);												// send position
 }
 
-void mototPoll() {
+void motorPoll() {
 	if (endSwitchState == 0 && motorState == MOTOR_LEFT) {						// end switch reached
 		motorState = MOTOR_STOP;
 		travelCount = 0;
@@ -229,8 +232,7 @@ void mototPoll() {
 	}
 
 	if (motorState != MOTOR_STOP) {
-		digitalWrite(5, HIGH);													// set green LED on at traveling
-																				// led switched off by asksin module automaticly
+		setPinHigh(LED_GRN_PORT, LED_GRN_PIN);									// set green LED on at traveling
 
 		if ( (getMillis() - travelTimeStart) > travelTimeMax ) {				// travel impulse missing
 			motorState = MOTOR_STOP;
@@ -244,6 +246,7 @@ void mototPoll() {
 
 	if (motorState != motorStateLast) {
 		if        (motorState == MOTOR_STOP) {
+			setPinLow(LED_GRN_PORT, LED_GRN_PIN);								// set green LED off at stop
 //			motorStop();
 			motorBreak();
 
@@ -292,8 +295,8 @@ void mototPoll() {
 
 void motorRight() {
 	motorStop();
-	digitalWrite(A0, 0);
-	digitalWrite(A1, 1);
+	setPinHigh(MOTOR_CTRL1_PORT, MOTOR_CTRL1_PIN);
+	setPinLow (MOTOR_CTRL2_PORT, MOTOR_CTRL2_PIN);
 
 	#ifdef SER_DBG
 		dbg << F("motorRight \n");
@@ -302,8 +305,8 @@ void motorRight() {
 
 void motorLeft() {
 	motorStop();
-	digitalWrite(A0, 1);
-	digitalWrite(A1, 0);
+	setPinLow (MOTOR_CTRL1_PORT, MOTOR_CTRL1_PIN);
+	setPinHigh(MOTOR_CTRL2_PORT, MOTOR_CTRL2_PIN);
 
 	#ifdef SER_DBG
 		dbg << F("motorLeft \n");
@@ -311,8 +314,8 @@ void motorLeft() {
 }
 
 void motorStop() {
-	digitalWrite(A0, 0);
-	digitalWrite(A1, 0);
+	setPinLow (MOTOR_CTRL1_PORT, MOTOR_CTRL1_PIN);
+	setPinLow (MOTOR_CTRL2_PORT, MOTOR_CTRL2_PIN);
 
 	// duplicate code. please fix
 	uint8_t initialPos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
@@ -334,8 +337,8 @@ void motorStop() {
 
 void motorBreak() {
 	motorStop();
-	digitalWrite(A0, 1);
-	digitalWrite(A1, 1);
+	setPinHigh(MOTOR_CTRL1_PORT, MOTOR_CTRL1_PIN);
+	setPinHigh(MOTOR_CTRL2_PORT, MOTOR_CTRL2_PIN);
 
 	#ifdef SER_DBG
 		dbg << F("motorBreak \n");
@@ -369,21 +372,6 @@ ISR (PCINT1_vect) {
 			travelCount++;
 		}
 	}
-
-	/*
-	if (irOn) {
-		uint8_t a = pcInt[PORTC].cur & _BV(PINC2);
-		dbg << "i2:" << pcInt[1].cur << "," << a << "\n";
-
-		if ((pcInt[1].cur & _BV(PINC2)) && irState == 0) {
-			irState = 1;
-			irCount++;
-		} else if ((pcInt[1].cur & _BV(PINC2) == 0) && irState == 1) {
-			irState = 0;
-			irCount++;
-		}
-	}
-*/
 }
 
 #if USE_ADRESS_SECTION == 1
