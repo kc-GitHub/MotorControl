@@ -1,12 +1,12 @@
 /*
  * Todo's:
- * - fix AES handling
  * - Statemachine for the channel
+ * - set motor reverse via register
  *
  */
 
 
-//#define SER_DBG
+#define SER_DBG
 
 //- load library's --------------------------------------------------------------------------------------------------------
 #include "register.h"															// device configuration file
@@ -77,8 +77,13 @@ void setup() {
 	// get values from eeprom
 	getEEPromBlock(0x03FF, 1, (void*)&motorLastDirection);						// restore motorLastDirection from byte 1024 in eeprom
 	getEEPromBlock(0x03FC, 2, (void*)&travelCount);								// restore travelCount from byte 1022 in eeprom
+
+	// we must get initialPos at begin of sketch. used in register.h
 	getEEPromBlock(0x03FB, 1, (void*)&initialPos);								// restore initialPos from byte 1021 in eeprom
-//	dbg << F("motorLastDirection: ") << motorLastDirection << F(", travelCount: ") << travelCount << '\n';
+
+	#ifdef SER_DBG
+		dbg << F("Restore vars from EEProm: mLastDir: ") << motorLastDirection << F(", travelCount: ") << travelCount << '\n';
+	#endif
 
 	hm.init();																	// init the asksin framework
 
@@ -95,8 +100,9 @@ void setup() {
 	#ifdef SER_DBG
 		dbg << F("HMID: ")  << _HEX(HMID,3)        << "\n";
 		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "\n\n";
-		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "(" << (char*)HMSR << ")\n\n";
+//		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "(" << (char*)HMSR << ")\n\n";
 		dbg << F("MAID: ")  << _HEX(MAID,3)        << "\n";
+
 //		dbg << F("HmKey: ") << _HEX(HMKEY, 16)     << "\n";
 //		dbg << F("KeyId: ") << _HEX(hmKeyIndex, 1) << "\n";
 
@@ -183,7 +189,7 @@ void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb) {			// rrt
 	intervallTimeStart = getMillis();
 
 	#ifdef SER_DBG
-		dbg << F("Ch: ") << channel << F(", State: ") << state << ", motorState: " << motorState << ", motorDirLast: " << motorDirLast << '\n';
+		dbg << F("Ch: ") << channel << F(", Stat: ") << state << ", mStat: " << motorState << ", mStatLast: " << motorStateLast << ", mDirLast: " << motorDirLast << F(", travelCount: ") << travelCount << F(", travelCountMax: ") << TRAVEL_COUNT_MAX << '\n';
 	#endif
 }
 
@@ -208,14 +214,17 @@ void mototPoll() {
 	if (endSwitchState == 0 && motorState == MOTOR_LEFT) {						// end switch reached
 		motorState = MOTOR_STOP;
 		travelCount = 0;
-//		dbg << F("end switch reached: ") << endSwitchState << '\n';
+
+		#ifdef SER_DBG
+			dbg << F("end switch reached: ") << endSwitchState << '\n';
+		#endif
 	}
 
 	if (travelCount >= travelMax && motorState == MOTOR_RIGHT) { 				// travel distance reached
 		motorState = MOTOR_STOP;
 
 		#ifdef SER_DBG
-			dbg << F("travel distance reached, travelMax: ") << travelMax << '\n';
+			dbg << F("travel distance reached, travelMax: ") << travelMax << ", travelCount: " << travelCount << '\n';
 		#endif
 	}
 
@@ -226,8 +235,10 @@ void mototPoll() {
 		if ( (getMillis() - travelTimeStart) > travelTimeMax ) {				// travel impulse missing
 			motorState = MOTOR_STOP;
 
-//			uint32_t tts = (getMillis() - travelTimeStart);
-//			dbg << F("travel imp missing: ") << tts << ", " << travelTimeStart << '\n';
+			#ifdef SER_DBG
+				uint32_t tts = (getMillis() - travelTimeStart);
+				dbg << F("travel imp missing: ") << tts << ", " << travelTimeStart << '\n';
+			#endif
 		}
 	}
 
@@ -283,28 +294,40 @@ void motorRight() {
 	motorStop();
 	digitalWrite(A0, 0);
 	digitalWrite(A1, 1);
+
+	#ifdef SER_DBG
+		dbg << F("motorRight \n");
+	#endif
 }
 
 void motorLeft() {
 	motorStop();
 	digitalWrite(A0, 1);
 	digitalWrite(A1, 0);
+
+	#ifdef SER_DBG
+		dbg << F("motorLeft \n");
+	#endif
 }
 
 void motorStop() {
 	digitalWrite(A0, 0);
 	digitalWrite(A1, 0);
 
+	// duplicate code. please fix
+	uint8_t initialPos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
+	initialPos = (initialPos > 200) ? 200 : 200 - initialPos;
+
 	// store to  eeprom
 	setEEPromBlock(0x03FF, 1, (void*)&motorLastDirection);						// save motorLastDirection to byte 1024 in eeprom
 	setEEPromBlock(0x03FC, 2, (void*)&travelCount);								// save travelCount to byte 1022 in eeprom
 
+	// we must save initialPos here, so its present of early begin of sketch. used in register.h
+	setEEPromBlock(0x03FB, 1, (void*)&initialPos);								// save last pos to byte 1022 in eeprom
 
-
-	// duplicate code. please fix
-	uint8_t pos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
-	pos = (pos > 200) ? 200 : 200 - pos;
-	setEEPromBlock(0x03FB, 2, (void*)&pos);										// save last pos to byte 1022 in eeprom
+	#ifdef SER_DBG
+		dbg << F("motorStop \n");
+	#endif
 
 	_delay_ms(100);
 }
@@ -313,6 +336,10 @@ void motorBreak() {
 	motorStop();
 	digitalWrite(A0, 1);
 	digitalWrite(A1, 1);
+
+	#ifdef SER_DBG
+		dbg << F("motorBreak \n");
+	#endif
 }
 
 // own PCINT1_vec
