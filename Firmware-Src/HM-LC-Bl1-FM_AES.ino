@@ -22,18 +22,15 @@
 #define TRAVEL_COUNT_MAX        32768											// ABS value of max travel count (max = 32768)
 
 // function forward declaration
-void motorPoll();
+void motorPoll(void);
 
 // set to 1 for reverse the motor direction
 uint8_t  reverseMotorDir    = 1;
 
 uint8_t  motorState;
 uint8_t  motorStateLast     = MOTOR_STOP;
-uint8_t  motorLastDirection = MOTOR_STOP;
 uint8_t  motorDirLast       = MOTOR_LEFT;
 uint8_t  endSwitchState     = 1;
-
-int16_t  travelCount = 0;
 
 int16_t  travelCountOld = 0;
 uint32_t travelTimeStart = 0;
@@ -48,7 +45,7 @@ uint16_t sendStatusIntervall = 2000;											// time after status update is se
  *
  * TODO: maybe we move the main parts to own setup/init function?
  */
-void setup() {
+void setup(void) {
 	// We disable the Watchdog first
 	wdt_disable();
 
@@ -70,19 +67,15 @@ void setup() {
 
 	#ifdef SER_DBG
 		dbgStart();																// serial setup
-		dbg << F("Starting sketch for HM-LC-Bl1-FM_AES ... ("__DATE__" "__TIME__")\n\n");
-		dbg << F(LIB_VERSION_STRING);
+		dbg << F("Starting sketch for HM-LC-Bl1-FM_AES ... ("__DATE__" "__TIME__")\n");
+		dbg << F(LIB_VERSION_STRING) << "\n";
 	#endif
 
-	// get values from eeprom
-	getEEPromBlock(0x03FF, 1, (void*)&motorLastDirection);						// restore motorLastDirection from byte 1024 in eeprom
-	getEEPromBlock(0x03FC, 2, (void*)&travelCount);								// restore travelCount from byte 1022 in eeprom
-
-	// we must get initialPos at begin of sketch. used in register.h
-	getEEPromBlock(0x03FB, 1, (void*)&initialPos);								// restore initialPos from byte 1021 in eeprom
+	getEEPromBlock(EEVARS_EEPROM_ADDR, 4, (void*)&eeVars);						// restore eeVars values from eeprom
 
 	#ifdef SER_DBG
-		dbg << F("Restore vars from EEProm: mLastDir: ") << motorLastDirection << F(", travelCount: ") << travelCount << '\n';
+		dbg << F("Restore vars from EEProm: mLastDir: ") << eeVars.motorLastDirection;
+		dbg << F(", travelCount: ") << eeVars.travelCount << '\n';
 	#endif
 
 	hm.init();																	// init the asksin framework
@@ -93,14 +86,16 @@ void setup() {
 		getDataFromAddressSection(HMID, 0, ADDRESS_SECTION_START + 12, 3);		// get serial number from bootloader section
 
 		#ifdef SER_DBG
-			dbg << F("Get HMID and HMSR from Bootloader-Area: ") << "\n";
+			dbg << F("Get HMID and HMSR from Bootloader-Area\n");
 		#endif
 	#endif
 
 	#ifdef SER_DBG
 		dbg << F("HMID: ")  << _HEX(HMID,3)        << "\n";
-		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "\n\n";
-//		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << "(" << (char*)HMSR << ")\n\n";
+		dbg << F("HMSR: ")  << _HEX(HMSR,10)       << " (";
+		for (uint8_t i = 0; i < 10; i++) {dbg << (char)HMSR[i];}
+		dbg << ")\n";
+
 		dbg << F("MAID: ")  << _HEX(MAID,3)        << "\n";
 
 //		dbg << F("HmKey: ") << _HEX(HMKEY, 16)     << "\n";
@@ -108,10 +103,10 @@ void setup() {
 
 		for (uint8_t i = 1; i <= devDef.cnlNbr; i++) {							// check if AES activated for any channel
 			if (hm.ee.getRegAddr(i, 1, 0, AS_REG_L1_AES_ACTIVE)) {
-				dbg << F("AES active for channel: ") << _HEXB(i) << '\n';
+				dbg << F("CH " ) << i << F(": AES is active\n");
 			}
 		}
-		dbg << '\n';
+		dbg << "\n";
 	#endif
 
 	/*
@@ -123,7 +118,7 @@ void setup() {
 /**
  * @brief This is the Arduino Forever-Loop
  */
-void loop() {
+void loop(void) {
 	hm.poll();																		// poll the asksin main loop
 
 	/*
@@ -180,11 +175,14 @@ void blindUpdateState(uint8_t channel, uint8_t state, uint32_t rrttb) {			// rrt
 	intervallTimeStart = getMillis();
 
 	#ifdef SER_DBG
-		dbg << F("Ch: ") << channel << F(", Stat: ") << state << ", mStat: " << motorState << ", mStatLast: " << motorStateLast << ", mDirLast: " << motorDirLast << F(", travelCount: ") << travelCount << F(", travelCountMax: ") << TRAVEL_COUNT_MAX << '\n';
+		dbg << F("Ch: ") << channel << F(", Stat: ") << state;
+		dbg << F(", mStat: ") << motorState << F(", mStatLast: ") << motorStateLast;
+		dbg << F(", mDirLast: ") << motorDirLast << F(", travelCount: ") << eeVars.travelCount;
+		dbg << F(", travelCountMax: ") << TRAVEL_COUNT_MAX << '\n';
 	#endif
 }
 
-void motorInit() {
+void motorInit(void) {
 	// initialize the impulse input 1
 	setPinHigh(SW_IMPULSE_PORT, SW_IMPULSE_PIN);								// set pullup for impulse input 1
 	pinInput(SW_IMPULSE_DDR, SW_IMPULSE_PIN);									// set impulse input 1 to input
@@ -201,37 +199,37 @@ void motorInit() {
 	pinOutput(MOTOR_CTRL1_DDR, MOTOR_CTRL1_PIN);								// MOTOR_CTRL1 to output
 	pinOutput(MOTOR_CTRL2_DDR, MOTOR_CTRL2_PIN);								// MOTOR_CTRL2 to output
 
+	eeVars.motorLastDirection = MOTOR_STOP;
 	motorState = MOTOR_STOP;
 	motorStateLast = MOTOR_STOP;
-	motorLastDirection = MOTOR_STOP;
 	motorDirLast = MOTOR_STOP;
 	endSwitchState = 1;
 	travelMax = 0;
 
-	travelCountOld = travelCount;
+	travelCountOld = eeVars.travelCount;
 }
 
-void sendPosition() {
-	uint8_t pos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
-	pos = (pos > 200) ? 200 : 200 - pos;
+void sendPosition(void) {
+	uint8_t pos = calcPosition();
 	cmMyBlind[0].setSendState(pos);												// send position
 }
 
-void motorPoll() {
+void motorPoll(void) {
 	if (endSwitchState == 0 && motorState == MOTOR_LEFT) {						// end switch reached
 		motorState = MOTOR_STOP;
-		travelCount = 0;
+		eeVars.travelCount = 0;
 
 		#ifdef SER_DBG
-			dbg << F("end switch reached: ") << endSwitchState << '\n';
+			dbg << F("Endswitch reached: ") << endSwitchState << "\n";
 		#endif
 	}
 
-	if (travelCount >= travelMax && motorState == MOTOR_RIGHT) { 				// travel distance reached
+	if (eeVars.travelCount >= travelMax && motorState == MOTOR_RIGHT) { 		// travel distance reached
 		motorState = MOTOR_STOP;
 
 		#ifdef SER_DBG
-			dbg << F("travel distance reached, travelMax: ") << travelMax << ", travelCount: " << travelCount << '\n';
+			dbg << F("Travel distance reached, travelMax: ") << travelMax;
+			dbg << ", travelCount: " << eeVars.travelCount << "\n";
 		#endif
 	}
 
@@ -243,7 +241,7 @@ void motorPoll() {
 
 			#ifdef SER_DBG
 				uint32_t tts = (getMillis() - travelTimeStart);
-				dbg << F("travel imp missing: ") << tts << ", " << travelTimeStart << '\n';
+				dbg << F("Travelimpulse missing: ") << tts << ", " << travelTimeStart << "\n";
 			#endif
 		}
 	}
@@ -254,15 +252,15 @@ void motorPoll() {
 			motorStopBrake();
 
 		} else if (motorState == MOTOR_LEFT) {
-			motorLastDirection = MOTOR_LEFT;
+			eeVars.motorLastDirection = MOTOR_LEFT;
 			if (reverseMotorDir) {
 				motorRight();
 			} else {
 				motorLeft();
 			}
 
-		} else if (motorState == MOTOR_RIGHT && travelCount < travelMax) {
-			motorLastDirection = MOTOR_RIGHT;
+		} else if (motorState == MOTOR_RIGHT && eeVars.travelCount < travelMax) {
+			eeVars.motorLastDirection = MOTOR_RIGHT;
 			if (reverseMotorDir) {
 				motorLeft();
 			} else {
@@ -271,13 +269,13 @@ void motorPoll() {
 		}
 	}
 
-	if (travelCount != travelCountOld) {
+	if (eeVars.travelCount != travelCountOld) {
 		// reset travelTimeStart
 		travelTimeStart = getMillis();
-		travelCountOld = travelCount;
+		travelCountOld = eeVars.travelCount;
 
 		#ifdef SER_DBG
-			dbg << F("travelCnt: ") << travelCount << '\n';
+			dbg << F("TravelCnt: ") << eeVars.travelCount << "\n";
 		#endif
 	}
 
@@ -296,83 +294,73 @@ void motorPoll() {
 	}
 }
 
-void motorRight() {
+void motorRight(void) {
+	// Make shure motor is stopped and delay some ms to prevent destroying the H-Bridge
 	motorStop();
+
 	setPinHigh(MOTOR_CTRL1_PORT, MOTOR_CTRL1_PIN);
 	setPinLow (MOTOR_CTRL2_PORT, MOTOR_CTRL2_PIN);
-
-	#ifdef SER_DBG
-		dbg << F("motorRight \n");
-	#endif
 }
 
-void motorLeft() {
+void motorLeft(void) {
+	// Make shure motor is stopped and delay some ms to prevent destroying the H-Bridge
 	motorStop();
+
 	setPinLow (MOTOR_CTRL1_PORT, MOTOR_CTRL1_PIN);
 	setPinHigh(MOTOR_CTRL2_PORT, MOTOR_CTRL2_PIN);
-
-	#ifdef SER_DBG
-		dbg << F("motorLeft \n");
-	#endif
 }
 
-void motorStop() {
+void motorStop(void) {
 	setPinLow (MOTOR_CTRL1_PORT, MOTOR_CTRL1_PIN);
 	setPinLow (MOTOR_CTRL2_PORT, MOTOR_CTRL2_PIN);
 
-	// duplicate code. please fix
-	uint8_t initialPos = (uint8_t)(((travelCount > 0 ? (int32_t)travelCount : 0) * 200 ) / travelMax);
-	initialPos = (initialPos > 200) ? 200 : 200 - initialPos;
-
-	// store to  eeprom
-	setEEPromBlock(0x03FF, 1, (void*)&motorLastDirection);						// save motorLastDirection to byte 1024 in eeprom
-	setEEPromBlock(0x03FC, 2, (void*)&travelCount);								// save travelCount to byte 1022 in eeprom
-
-	// we must save initialPos here, so its present of early begin of sketch. used in register.h
-	setEEPromBlock(0x03FB, 1, (void*)&initialPos);								// save last pos to byte 1022 in eeprom
-
-	#ifdef SER_DBG
-		dbg << F("motorStop \n");
-	#endif
-
+	// Without delay H-Bridge may be destroyed
 	_delay_ms(100);
 }
 
-void motorStopBrake() {
+void motorStopBrake(void) {
+	// Make shure motor is stopped and delay some ms to prevent destroying the H-Bridge
 	motorStop();
+
 	setPinHigh(MOTOR_CTRL1_PORT, MOTOR_CTRL1_PIN);
 	setPinHigh(MOTOR_CTRL2_PORT, MOTOR_CTRL2_PIN);
 
-	#ifdef SER_DBG
-		dbg << F("motorStopBrake \n");
-	#endif
+	eeVars.initialPos = calcPosition();
+	setEEPromBlock(EEVARS_EEPROM_ADDR, 4, (void*)&eeVars);						// save eeVars to eeprom
+}
+
+uint8_t calcPosition(void) {
+	uint8_t position = (uint8_t)( ((eeVars.travelCount > 0 ? (int32_t)eeVars.travelCount : 0) * 200 ) / travelMax );
+	position = (position > 200) ? 200 : (200 - position);
+	return position;
 }
 
 // own PCINT1_vec
 ISR (PCINT1_vect) {
-
 	uint8_t impulseSwitch = (PINC & _BV(SW_IMPULSE_PIN));
 
 	endSwitchState = (PINC & _BV(SW_END_PIN));									// here we need no debounceing
 
-//	dbg << F("impulseSwitch: ") << impulseSwitch << ", endSwitchState: " << endSwitchState << ", PINC: " << PINC << '\n';
+	//dbg << F("impulseSwitch: ") << impulseSwitch;
+	//dbg << F(", endSwitchState: ") << endSwitchState;
+	//dbg << F(", PINC: ") << PINC << "\n";
 
 	if (!impulseSwitch && (getMillis() - impulseSwitchTime > DEBOUNCE) ) {		// trigger on release impulse contact
 		impulseSwitchTime = getMillis();
 
 		if ( (
-			(motorState == MOTOR_LEFT || (motorState == MOTOR_STOP && motorLastDirection == MOTOR_LEFT) ) &&
-			travelCount > -TRAVEL_COUNT_MAX) ) {
+			(motorState == MOTOR_LEFT || (motorState == MOTOR_STOP && eeVars.motorLastDirection == MOTOR_LEFT) ) &&
+			eeVars.travelCount > -TRAVEL_COUNT_MAX) ) {
 
 			if (endSwitchState) {												// negative count only in end switch not active
-				travelCount--;
+				eeVars.travelCount--;
 			}
 
 		} else if ( (
-			(motorState == MOTOR_RIGHT || (motorState == MOTOR_STOP && motorLastDirection == MOTOR_RIGHT) ) &&
-			travelCount < TRAVEL_COUNT_MAX) ) {
+			(motorState == MOTOR_RIGHT || (motorState == MOTOR_STOP && eeVars.motorLastDirection == MOTOR_RIGHT) ) &&
+			eeVars.travelCount < TRAVEL_COUNT_MAX) ) {
 
-			travelCount++;
+			eeVars.travelCount++;
 		}
 	}
 }
